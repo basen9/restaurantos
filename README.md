@@ -100,6 +100,7 @@ Otwórz **http://localhost:3000**
 - **Baza:** PostgreSQL (multi-tenant), Prisma Migrate
 - **Auth:** NextAuth.js (JWT + bcrypt), sesja 8 h
 - **AI:** Anthropic Claude API
+- **PWA:** instalowalna na Android/iPhone/desktop (manifest + service worker) — patrz [`docs/PWA.md`](docs/PWA.md)
 
 ---
 
