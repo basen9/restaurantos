@@ -7,9 +7,10 @@ import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
-import { Plus, X, ChefHat } from 'lucide-react'
+import { Plus, X, ChefHat, BookOpen } from 'lucide-react'
 
 const fcVariant = (pct: number | null) => pct == null ? 'gray' : pct > 35 ? 'red' : pct > 28 ? 'orange' : 'green'
+const ACCESS_LABELS: Record<string, string> = { OWNER_ONLY: 'Tylko właściciel', OWNER_MANAGER: 'Właściciel + manager', ALL_COOKS: 'Wszyscy kucharze', SELECTED: 'Wybrane osoby' }
 
 export default function RecipesPage() {
   const qc = useQueryClient()
@@ -17,11 +18,22 @@ export default function RecipesPage() {
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => fetch('/api/products').then(r => r.json()) })
   const { data: stock = [] } = useQuery({ queryKey: ['inventory-items'], queryFn: () => fetch('/api/inventory-items').then(r => r.json()) })
   const { data: analytics } = useQuery({ queryKey: ['analytics'], queryFn: () => fetch('/api/analytics').then(r => r.json()) })
+  const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: () => fetch('/api/users').then(r => r.json()) })
 
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ productId: '', yield: '1' })
   const [ings, setIngs] = useState<any[]>([])
   const [ingRow, setIngRow] = useState({ inventoryItemId: '', quantity: '', unit: 'kg' })
+
+  // Edytor pełnego przepisu kulinarnego + dostępu.
+  const [guide, setGuide] = useState<any>(null)
+  const saveGuide = useMutation({
+    mutationFn: ({ id, ...body }: any) => fetch(`/api/recipes/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || 'err') }); return r.json() }),
+    onSuccess: () => { toast.success('Pełny przepis zapisany'); setGuide(null); qc.invalidateQueries({ queryKey: ['recipes'] }) },
+    onError: (e: any) => toast.error(e.message || 'Błąd'),
+  })
+  const employees = (Array.isArray(users) ? users : []).filter((u: any) => u.role === 'EMPLOYEE')
+  const toggleAccessUser = (uid: string) => setGuide((g: any) => ({ ...g, accessUserIds: (g.accessUserIds || []).includes(uid) ? g.accessUserIds.filter((x: string) => x !== uid) : [...(g.accessUserIds || []), uid] }))
 
   const create = useMutation({
     mutationFn: (d: any) => fetch('/api/recipes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }).then(r => { if (!r.ok) return r.json().then(e => { throw new Error(e.error || 'err') }); return r.json() }),
@@ -97,10 +109,51 @@ export default function RecipesPage() {
                   <span key={it.id} className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.05)', color: '#9AAAB8' }}>{it.inventoryItem?.name} {it.quantity}{it.unit}</span>
                 ))}
               </div>
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
+                <span className="text-[11px] text-[#6B7A8D]">Pełny przepis: <span className="text-[#9AAAB8]">{ACCESS_LABELS[r.fullRecipeAccess] || '—'}</span>{r.instructions ? ' · uzupełniony' : ' · pusty'}</span>
+                <button className="btn btn-ghost py-1.5 px-2.5 text-xs" onClick={() => setGuide({ id: r.id, name: r.product?.name, instructions: r.instructions || '', prepTimeMin: r.prepTimeMin || '', chefTips: r.chefTips || '', cookNotes: r.cookNotes || '', allergens: (r.allergens || []).join(', '), fullRecipeAccess: r.fullRecipeAccess || 'OWNER_ONLY', accessUserIds: r.accessUserIds || [] })}><BookOpen size={13} /> Pełny przepis</button>
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      <Modal open={!!guide} onClose={() => setGuide(null)} title={`Pełny przepis: ${guide?.name || ''}`} size="lg">
+        {guide && (
+          <div className="space-y-3">
+            <div><label className="block text-xs font-semibold text-[#9AAAB8] uppercase tracking-wider mb-1.5">Przygotowanie krok po kroku</label>
+              <textarea className="input" rows={5} placeholder="1. ...&#10;2. ..." value={guide.instructions} onChange={e => setGuide((g: any) => ({ ...g, instructions: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="block text-xs font-semibold text-[#9AAAB8] uppercase tracking-wider mb-1.5">Czas przygotowania (min)</label>
+                <input className="input" type="number" min="0" value={guide.prepTimeMin} onChange={e => setGuide((g: any) => ({ ...g, prepTimeMin: e.target.value }))} /></div>
+              <div><label className="block text-xs font-semibold text-[#9AAAB8] uppercase tracking-wider mb-1.5">Alergeny (po przecinku)</label>
+                <input className="input" placeholder="gluten, jaja, mleko" value={guide.allergens} onChange={e => setGuide((g: any) => ({ ...g, allergens: e.target.value }))} /></div>
+            </div>
+            <div><label className="block text-xs font-semibold text-[#9AAAB8] uppercase tracking-wider mb-1.5">Wskazówki dla kucharzy</label>
+              <textarea className="input" rows={2} value={guide.chefTips} onChange={e => setGuide((g: any) => ({ ...g, chefTips: e.target.value }))} /></div>
+            <div><label className="block text-xs font-semibold text-[#9AAAB8] uppercase tracking-wider mb-1.5">Notatki</label>
+              <textarea className="input" rows={2} value={guide.cookNotes} onChange={e => setGuide((g: any) => ({ ...g, cookNotes: e.target.value }))} /></div>
+            <div><label className="block text-xs font-semibold text-[#9AAAB8] uppercase tracking-wider mb-1.5">Kto widzi pełny przepis</label>
+              <select className="input" value={guide.fullRecipeAccess} onChange={e => setGuide((g: any) => ({ ...g, fullRecipeAccess: e.target.value }))}>
+                {Object.entries(ACCESS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select></div>
+            {guide.fullRecipeAccess === 'SELECTED' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[28vh] overflow-y-auto">
+                {employees.map((u: any) => (
+                  <button key={u.id} onClick={() => toggleAccessUser(u.id)} className="flex items-center gap-2 p-2 rounded-lg text-left text-sm" style={{ background: (guide.accessUserIds || []).includes(u.id) ? 'rgba(232,185,35,0.1)' : 'transparent', color: (guide.accessUserIds || []).includes(u.id) ? '#E8ECF0' : '#9AAAB8' }}>
+                    <div className="w-4 h-4 rounded border flex items-center justify-center flex-shrink-0" style={{ borderColor: (guide.accessUserIds || []).includes(u.id) ? '#E8B923' : 'rgba(255,255,255,0.2)', background: (guide.accessUserIds || []).includes(u.id) ? '#E8B923' : 'transparent' }}>{(guide.accessUserIds || []).includes(u.id) && <span className="text-[#0F1117] text-[10px]">✓</span>}</div>
+                    {u.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button className="btn btn-gold w-full" disabled={saveGuide.isPending}
+              onClick={() => saveGuide.mutate({ id: guide.id, instructions: guide.instructions || undefined, prepTimeMin: guide.prepTimeMin ? parseInt(guide.prepTimeMin) : undefined, chefTips: guide.chefTips || undefined, cookNotes: guide.cookNotes || undefined, allergens: guide.allergens ? guide.allergens.split(',').map((s: string) => s.trim()).filter(Boolean) : [], fullRecipeAccess: guide.fullRecipeAccess, accessUserIds: guide.fullRecipeAccess === 'SELECTED' ? guide.accessUserIds : [] })}>
+              {saveGuide.isPending ? 'Zapisywanie…' : 'Zapisz pełny przepis'}
+            </button>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Nowa receptura">
         <div className="space-y-3">

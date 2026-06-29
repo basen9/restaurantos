@@ -19,10 +19,14 @@ export const GET = handle(async () => {
   const user = await requireAuth()
   const recipes = await prisma.recipe.findMany({
     where: orgScope(user),
-    include: { product: true, items: { include: { inventoryItem: { select: { id: true, name: true, unit: true, costPerUnit: true } } } } },
+    include: {
+      product: true,
+      items: { include: { inventoryItem: { select: { id: true, name: true, unit: true, costPerUnit: true } } } },
+      accessUsers: { select: { userId: true } },
+    },
     orderBy: { createdAt: 'desc' },
   })
-  return NextResponse.json(recipes.map((r) => ({ ...r, ...computeCost(r) })))
+  return NextResponse.json(recipes.map((r) => ({ ...r, ...computeCost(r), accessUserIds: r.accessUsers.map((a) => a.userId) })))
 })
 
 export const POST = handle(async (req) => {

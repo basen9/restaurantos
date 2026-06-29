@@ -262,6 +262,17 @@ export const recipeSchema = z.object({
     .max(100),
 })
 
+export const recipeGuideSchema = z.object({
+  instructions: z.string().max(8000).optional(),
+  prepTimeMin: z.number().int().nonnegative().max(100000).optional(),
+  chefTips: z.string().max(4000).optional(),
+  cookNotes: z.string().max(4000).optional(),
+  allergens: z.array(z.string().max(60)).max(40).optional(),
+  photos: z.array(z.string().url().max(2000)).max(20).optional(),
+  fullRecipeAccess: z.enum(['OWNER_ONLY', 'OWNER_MANAGER', 'ALL_COOKS', 'SELECTED']).optional(),
+  accessUserIds: z.array(z.string().min(1)).max(200).optional(),
+})
+
 export const wasteSchema = z.object({
   product: z.string().min(1).max(160),
   quantity: z.number().positive(),
