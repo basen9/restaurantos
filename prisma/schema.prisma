@@ -957,6 +957,7 @@ model TableOrder {
 
   @@index([organizationId, status])
   @@index([tableId])
+  @@index([tableId, status])
 }
 
 // Pozycja zamówienia (jedzenie/picie) ze statusem realizacji.
