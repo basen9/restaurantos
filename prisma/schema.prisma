@@ -183,6 +183,7 @@ model User {
   recvMessages   Message[]      @relation("MessageRecipient")
   stockMovements StockMovement[]
   auditLogs      AuditLog[]
+  recipeAccess   RecipeAccessUser[]
 
   @@index([organizationId])
   @@index([organizationId, role])
@@ -605,12 +606,43 @@ model Recipe {
 
   yield     Int      @default(1) // ile sztuk wyrobu z receptury
   notes     String?
+
+  // Pełny przepis kulinarny (oddzielony od receptury magazynowej powyżej).
+  instructions String?  // opis przygotowania krok po kroku
+  prepTimeMin  Int?     // czas przygotowania w minutach
+  chefTips     String?  // wskazówki dla kucharzy
+  cookNotes    String?  // notatki
+  allergens    String[] @default([]) // alergeny
+  photos       String[] @default([]) // adresy zdjęć
+  fullRecipeAccess RecipeAccess @default(OWNER_ONLY) // kto widzi pełny przepis
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  items RecipeItem[]
+  items       RecipeItem[]
+  accessUsers RecipeAccessUser[] // dla fullRecipeAccess = SELECTED
 
   @@index([organizationId])
+}
+
+// Kto ma dostęp do pełnego przepisu kulinarnego.
+enum RecipeAccess {
+  OWNER_ONLY     // tylko właściciel
+  OWNER_MANAGER  // właściciel + manager
+  ALL_COOKS      // wszyscy (kucharze)
+  SELECTED       // wybrane osoby (accessUsers)
+}
+
+// Wybrane osoby z dostępem do pełnego przepisu (gdy fullRecipeAccess = SELECTED).
+model RecipeAccessUser {
+  id       String @id @default(cuid())
+  recipeId String
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, userId])
+  @@index([userId])
 }
 
 model RecipeItem {

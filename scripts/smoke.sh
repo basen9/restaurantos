@@ -36,7 +36,7 @@ for p in /owner /owner/coo /owner/alerts /owner/analytics /owner/warehouse /owne
 done
 
 echo "== Strony EMPLOYEE =="
-for p in /dashboard /schedule /time /availability /sop /checklists /production /inventory /messages /performance /tasks /waste /incidents /vacation /assistant; do
+for p in /dashboard /schedule /time /availability /sop /recipes /checklists /production /inventory /messages /performance /tasks /waste /incidents /vacation /assistant; do
   chk "EMP $p -> 200" 200 "$(code emp $p)"
 done
 

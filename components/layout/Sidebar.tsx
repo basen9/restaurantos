@@ -21,6 +21,7 @@ const employeeNav = [
     { href: '/tasks', label: 'Zadania', icon: CheckSquare, badge: 'tasks' },
     { href: '/checklists', label: 'Checklisty', icon: ListTodo },
     { href: '/sop', label: 'SOP / procedury', icon: BookOpen },
+    { href: '/recipes', label: 'Przepisy', icon: ChefHat },
     { href: '/production', label: 'Produkcja', icon: Package },
     { href: '/inventory', label: 'Remanent', icon: Package },
     { href: '/waste', label: 'Zgłoś stratę', icon: Trash2 },
