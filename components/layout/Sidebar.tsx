@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Calendar, Clock, Umbrella, RefreshCw, CheckSquare, ListTodo,
   Package, Trash2, AlertTriangle, Bell, MessageSquare, Bot, BarChart3,
-  Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine
+  Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine, MapPin
 } from 'lucide-react'
 
 const employeeNav = [
@@ -42,6 +42,7 @@ const ownerNav = [
     { href: '/owner/analytics', label: 'Analityka', icon: BarChart3 },
   ]},
   { section: 'Zespół', items: [
+    { href: '/owner/locations', label: 'Lokale', icon: MapPin },
     { href: '/owner/employees', label: 'Pracownicy', icon: Users },
     { href: '/owner/schedule', label: 'Grafiki', icon: Calendar },
     { href: '/owner/tasks', label: 'Zadania', icon: CheckSquare },

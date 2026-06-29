@@ -25,11 +25,16 @@ async function main() {
     create: { id: 'org-demo', name: 'Kraków Bakery', slug: 'krakow-bakery', plan: 'PRO' },
   })
 
-  // Lokal
+  // Lokale (multi-lokal)
   const location = await prisma.location.upsert({
     where: { id: 'loc-krakow' },
     update: {},
     create: { id: 'loc-krakow', organizationId: org.id, name: 'Kraków Rynek', address: 'Rynek Główny 1', city: 'Kraków' },
+  })
+  const location2 = await prisma.location.upsert({
+    where: { id: 'loc-kazimierz' },
+    update: {},
+    create: { id: 'loc-kazimierz', organizationId: org.id, name: 'Kraków Kazimierz', address: 'Plac Nowy 5', city: 'Kraków' },
   })
 
   const hash = (p) => bcrypt.hashSync(p, 10)
@@ -65,10 +70,10 @@ async function main() {
 
   const emp2 = await prisma.user.upsert({
     where: { email: 'marek@workos.pl' },
-    update: {},
+    update: { locationId: location2.id },
     create: {
       id: 'user-marek', organizationId: org.id, name: 'Marek Zając', email: 'marek@workos.pl',
-      password: hash('marek123'), role: 'EMPLOYEE', position: 'Piekarz', locationId: location.id,
+      password: hash('marek123'), role: 'EMPLOYEE', position: 'Piekarz', locationId: location2.id,
     },
   })
 

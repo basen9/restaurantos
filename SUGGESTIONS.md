@@ -58,6 +58,8 @@ Status: ✅ wdrożone · 🟦 zaplanowane · 💡 pomysł.
 
 ---
 
+> Aktualizacja: ✅ Multi-lokal z pełną analityką (ranking rentowności, przychód/marża/koszt pracy/straty per lokal, CRUD lokali, rozkład sprzedaży) wdrożony. Następne: filtr lokalu na całym dashboardzie, trendy lok.-do-lok. (benchmark wewnętrzny), pracownik w wielu lokalach. Uzasadnienie: benchmark wewnętrzny ujawnia najlepsze praktyki najlepszego lokalu do replikacji w pozostałych.
+
 ## C. Wyróżniki kategoryjne (Etap 3–5) — dlaczego WorkOS wygrywa
 
 | Wyróżnik | Konkurenci | Przewaga WorkOS |

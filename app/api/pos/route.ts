@@ -16,7 +16,10 @@ export const GET = handle(async () => {
 export const POST = handle(async (req) => {
   const user = await requirePermission(PERMISSIONS.VIEW_FINANCE)
 
-  const products = await prisma.product.findMany({ where: { ...orgScope(user), isActive: true, price: { gt: 0 } }, select: { id: true, name: true, price: true } })
+  const [products, locations] = await Promise.all([
+    prisma.product.findMany({ where: { ...orgScope(user), isActive: true, price: { gt: 0 } }, select: { id: true, name: true, price: true } }),
+    prisma.location.findMany({ where: { ...orgScope(user), isActive: true }, select: { id: true } }),
+  ])
   if (products.length === 0) throw new ApiError(400, 'Brak produktów z ceną — dodaj ceny w katalogu, aby zsynchronizować sprzedaż.')
 
   const start = new Date(); start.setHours(0, 0, 0, 0)
@@ -38,13 +41,14 @@ export const POST = handle(async (req) => {
     }
     const total = items.reduce((s, it) => s + it.total, 0)
     const soldAt = new Date(start.getTime() + rint(7 * 60, 20 * 60) * 60 * 1000) // 7:00–20:00
-    sales.push({ total, soldAt, items })
+    const locationId = locations.length ? locations[rint(0, locations.length - 1)].id : null
+    sales.push({ total, soldAt, items, locationId })
   }
 
   await prisma.$transaction(
-    sales.map((s) =>
+    sales.map((s, idx) =>
       prisma.sale.create({
-        data: { organizationId: user.organizationId, soldAt: s.soldAt, total: s.total, source: 'MOCK', externalId: `mock-${s.soldAt.getTime()}-${Math.round(s.total)}`, items: { create: s.items } },
+        data: { organizationId: user.organizationId, locationId: s.locationId, soldAt: s.soldAt, total: s.total, source: 'MOCK', externalId: `mock-${s.soldAt.getTime()}-${idx}`, items: { create: s.items } },
       }),
     ),
   )
