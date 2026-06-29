@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { StatCard } from '@/components/ui/StatCard'
@@ -23,7 +24,8 @@ function SectionLabel({ n, children, icon }: { n: number; children: React.ReactN
 export default function OwnerDashboard() {
   const { data: session } = useSession()
   const user = session?.user as any
-  const { data, isLoading } = useQuery({ queryKey: ['analytics'], queryFn: () => fetch('/api/analytics').then(r => r.json()), refetchInterval: 60000 })
+  const [loc, setLoc] = useState('')
+  const { data, isLoading } = useQuery({ queryKey: ['analytics', loc], queryFn: () => fetch(`/api/analytics${loc ? `?locationId=${loc}` : ''}`).then(r => r.json()), refetchInterval: 60000 })
 
   if (isLoading) return <PageLoader />
 
@@ -43,8 +45,16 @@ export default function OwnerDashboard() {
           <h1 className="font-display text-2xl sm:text-3xl text-[#F5F0E8]">Centrum dowodzenia</h1>
           <p className="text-sm text-[#6B7A8D] mt-1">{dayName}, {formatDate(new Date())} · {user?.organizationName || 'Twój biznes'}</p>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(232,185,35,0.1)', border: '1px solid rgba(232,185,35,0.3)', color: '#E8B923' }}>
-          <Sparkles size={13} /> AI COO
+        <div className="flex items-center gap-2">
+          {locations.length > 1 && (
+            <select className="input w-auto text-xs py-1.5" value={loc} onChange={e => setLoc(e.target.value)}>
+              <option value="">Wszystkie lokale</option>
+              {locations.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          )}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(232,185,35,0.1)', border: '1px solid rgba(232,185,35,0.3)', color: '#E8B923' }}>
+            <Sparkles size={13} /> AI COO
+          </div>
         </div>
       </div>
 
