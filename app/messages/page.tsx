@@ -74,7 +74,7 @@ export default function MessagesPage() {
                 </div>
                 <div className="p-3 border-t border-white/5 flex gap-2">
                   <input className="input flex-1" placeholder="Napisz wiadomość…" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && text.trim()) send.mutate({ recipientId: active.id, content: text.trim() }) }} />
-                  <button className="btn btn-gold" disabled={!text.trim() || send.isPending} onClick={() => send.mutate({ recipientId: active.id, content: text.trim() })}><Send size={14} /></button>
+                  <button className="btn btn-gold" aria-label="Wyślij wiadomość" disabled={!text.trim() || send.isPending} onClick={() => send.mutate({ recipientId: active.id, content: text.trim() })}><Send size={14} /></button>
                 </div>
               </>
             )}

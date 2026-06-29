@@ -1,6 +1,6 @@
 // Analityka per-lokal: przychód, koszt pracy, straty, awarie, obsada + ranking.
 import { prisma } from './prisma'
-import { productCostMap, cogsFor } from './finance'
+import { productCostMap, cogsFor, shiftMinutes } from './finance'
 
 export interface LocationRow {
   id: string
@@ -81,13 +81,4 @@ export async function getLocationsBreakdown(organizationId: string): Promise<Loc
     }
   })
   return rankLocations(rows)
-}
-
-// Czas zmiany w minutach (realny clock-in/out, ACTIVE do teraz, fallback grafik).
-function shiftMinutes(s: { actualStart: Date | null; actualEnd: Date | null; status: string; startTime: string; endTime: string }): number {
-  if (s.actualStart && s.actualEnd) return (s.actualEnd.getTime() - s.actualStart.getTime()) / 60000
-  if (s.actualStart && s.status === 'ACTIVE') return (Date.now() - s.actualStart.getTime()) / 60000
-  const [h1, m1] = s.startTime.split(':').map(Number)
-  const [h2, m2] = s.endTime.split(':').map(Number)
-  return Math.max(0, h2 * 60 + m2 - (h1 * 60 + m1))
 }

@@ -26,7 +26,7 @@ export const GET = handle(async (req) => {
   const stamp = new Date().toISOString().slice(0, 10)
 
   if (type === 'waste') {
-    const rows = await prisma.wasteReport.findMany({ where: { ...org, date: { gte: from, lte: to } }, include: { user: { select: { name: true } } }, orderBy: { date: 'desc' } })
+    const rows = await prisma.wasteReport.findMany({ where: { ...org, date: { gte: from, lte: to } }, include: { user: { select: { name: true } } }, orderBy: { date: 'desc' }, take: 10000 })
     const csv = toCsv(['Data', 'Produkt', 'Ilość', 'Jedn.', 'Powód', 'Koszt (zł)', 'Pracownik'], rows.map((r) => [r.date.toISOString().slice(0, 10), r.product, r.quantity, r.unit, r.reason, r.totalCost, r.user?.name || '']))
     return csvResponse(`straty_${stamp}.csv`, csv)
   }

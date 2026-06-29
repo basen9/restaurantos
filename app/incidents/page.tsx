@@ -20,8 +20,8 @@ export default function IncidentsPage() {
   const { data: incidents = [], isLoading } = useQuery({ queryKey: ['incidents'], queryFn: () => fetch('/api/incidents').then(r => r.json()) })
 
   const addIncident = useMutation({
-    mutationFn: (data: any) => fetch('/api/incidents', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['incidents'] }); toast.success('Awaria zgłoszona! Manager powiadomiony.'); setShowAdd(false) }
+    mutationFn: (data: any) => fetch('/api/incidents', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error('Nie udało się zgłosić awarii'); return r.json() }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['incidents'] }); toast.success('Awaria zgłoszona! Przełożony powiadomiony.'); setShowAdd(false) }
   })
 
   if (isLoading) return <PageLoader />
@@ -76,7 +76,7 @@ export default function IncidentsPage() {
             <textarea className="input" rows={3} placeholder="Opisz dokładnie co się stało..." value={form.description} onChange={e => setForm(p=>({...p, description:e.target.value}))} /></div>
           <div className="flex gap-3">
             <button className="btn btn-ghost flex-1" onClick={() => setShowAdd(false)}>Anuluj</button>
-            <button className="btn btn-gold flex-1" disabled={!form.description} onClick={() => addIncident.mutate(form)}>Wyślij zgłoszenie</button>
+            <button className="btn btn-gold flex-1" disabled={!form.description || addIncident.isPending} onClick={() => addIncident.mutate(form)}>{addIncident.isPending ? 'Wysyłanie…' : 'Wyślij zgłoszenie'}</button>
           </div>
         </div>
       </Modal>

@@ -27,6 +27,27 @@ describe('matchInvoiceLines', () => {
     expect(res[1].inventoryItemId).toBe('b')
     expect(res[2].inventoryItemId).toBeNull()
   })
+
+  it('wybiera najlepsze dopasowanie, nie pierwsze (ranking po tokenach)', () => {
+    const inv = [
+      { id: 'm32', name: 'Mleko 3.2%' },
+      { id: 'mbl', name: 'Mleko bez laktozy' },
+    ]
+    const res = matchInvoiceLines([{ name: 'mleko bez laktozy', quantity: 1, unit: 'l', unitPrice: 4 }], inv)
+    expect(res[0].inventoryItemId).toBe('mbl')
+  })
+
+  it('krótka nazwa nie "połyka" niepowiązanej dłuższej (ser vs deser)', () => {
+    const inv = [{ id: 'ser', name: 'Ser' }]
+    const res = matchInvoiceLines([{ name: 'Deser lodowy', quantity: 1, unit: 'szt', unitPrice: 9 }], inv)
+    expect(res[0].inventoryItemId).toBeNull()
+  })
+
+  it('pojedynczy wspólny token nie wystarcza (olej slonecznikowy vs olej rzepakowy)', () => {
+    const inv = [{ id: 'rz', name: 'Olej rzepakowy' }]
+    const res = matchInvoiceLines([{ name: 'Olej słonecznikowy', quantity: 1, unit: 'l', unitPrice: 8 }], inv)
+    expect(res[0].inventoryItemId).toBeNull()
+  })
 })
 
 describe('parseInvoiceJson', () => {

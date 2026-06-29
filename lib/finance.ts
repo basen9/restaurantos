@@ -1,6 +1,8 @@
 // Wspólna logika finansowa: koszt wytworzenia (COGS) na podstawie receptur i produktów.
 import { prisma } from './prisma'
 
+export const round2 = (n: number) => Math.round(n * 100) / 100
+
 // Mapa productId -> teoretyczny koszt jednostkowy (z receptury, fallback do Product.costPerUnit).
 export async function productCostMap(organizationId: string): Promise<Map<string, number>> {
   const [recipes, products] = await Promise.all([
@@ -15,7 +17,9 @@ export async function productCostMap(organizationId: string): Promise<Map<string
   for (const r of recipes) {
     const total = r.items.reduce((s, it) => s + it.quantity * (it.inventoryItem?.costPerUnit || 0), 0)
     const per = r.yield > 0 ? total / r.yield : total
-    map.set(r.productId, Math.round(per * 100) / 100)
+    // Nadpisujemy fallback z Product.costPerUnit TYLKO gdy receptura daje dodatni koszt.
+    // Inaczej nieskalkulowana receptura (składniki bez ceny) wyzerowałaby COGS i zawyżyła marżę.
+    if (per > 0) map.set(r.productId, round2(per))
   }
   return map
 }
@@ -25,15 +29,14 @@ export function cogsFor(items: { productId: string | null; quantity: number }[],
   return items.reduce((s, it) => s + (it.productId ? (costMap.get(it.productId) || 0) : 0) * it.quantity, 0)
 }
 
-const round2 = (n: number) => Math.round(n * 100) / 100
-
 // Czas zmiany w minutach: realny clock-in/out, dla ACTIVE do teraz, fallback do grafiku.
-function shiftMinutes(s: { actualStart: Date | null; actualEnd: Date | null; status: string; startTime: string; endTime: string }): number {
+// Jedno źródło prawdy — używane też przez locationAnalytics (koniec rozjazdu dwóch kopii).
+export function shiftMinutes(s: { actualStart: Date | null; actualEnd: Date | null; status: string; startTime: string | null; endTime: string | null }): number {
   if (s.actualStart && s.actualEnd) return Math.max(0, (s.actualEnd.getTime() - s.actualStart.getTime()) / 60000)
   if (s.actualStart && s.status === 'ACTIVE') return Math.max(0, (Date.now() - s.actualStart.getTime()) / 60000)
   const [h1, m1] = (s.startTime || '0:0').split(':').map(Number)
   const [h2, m2] = (s.endTime || '0:0').split(':').map(Number)
-  return Math.max(0, h2 * 60 + m2 - (h1 * 60 + m1))
+  return Math.max(0, (h2 || 0) * 60 + (m2 || 0) - ((h1 || 0) * 60 + (m1 || 0)))
 }
 
 // Koszt pracy w okresie = Σ godziny × stawka godzinowa.
@@ -44,7 +47,7 @@ export async function laborCost(organizationId: string, from: Date, to: Date): P
   })
   let cost = 0
   for (const s of shifts) cost += (shiftMinutes(s) / 60) * (s.user?.hourlyRate || 0)
-  return Math.round(cost)
+  return round2(cost)
 }
 
 // Wariancja food cost: rzeczywiste zużycie magazynu (ruchy) vs teoretyczne wynikające ze sprzedaży.

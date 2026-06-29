@@ -14,30 +14,38 @@ export const PATCH = handle(async (req, { params }: { params: { id: string } }) 
 
   const { restock, restockType, reason, supplierId, ...fields } = data
 
-  // Ruch magazynowy (przyjęcie/korekta/zużycie/strata) — aktualizuje stan.
-  let newStock = item.stock
-  if (typeof restock === 'number' && restock !== 0) {
-    newStock = Math.max(0, item.stock + restock)
-    await prisma.stockMovement.create({
-      data: {
-        organizationId: user.organizationId,
-        inventoryItemId: item.id,
-        userId: user.id,
-        type: restockType || (restock > 0 ? 'PURCHASE' : 'ADJUSTMENT'),
-        quantity: restock,
-        unitCost: restockType === 'PURCHASE' || (!restockType && restock > 0) ? (fields.costPerUnit ?? item.costPerUnit) : null,
-        reason,
-      },
-    })
+  // Walidacja właściciela dostawcy (izolacja tenanta — supplierId pochodzi z body).
+  if (supplierId) {
+    const sup = await prisma.supplier.findFirst({ where: { id: supplierId, ...orgScope(user) }, select: { id: true } })
+    if (!sup) throw new ApiError(400, 'Nieprawidłowy dostawca')
   }
 
-  const updated = await prisma.inventoryItem.update({
-    where: { id: item.id },
-    data: {
-      ...fields,
-      ...(supplierId !== undefined ? { supplierId: supplierId || null } : {}),
-      stock: newStock,
-    },
+  const hasMovement = typeof restock === 'number' && restock !== 0
+
+  // Atomowo: ruch magazynowy + zmiana stanu (increment) w jednej transakcji.
+  // Brak read-modify-write → brak utraty aktualizacji przy współbieżności; spójność ruchy↔stan.
+  const updated = await prisma.$transaction(async (tx) => {
+    if (hasMovement) {
+      await tx.stockMovement.create({
+        data: {
+          organizationId: user.organizationId,
+          inventoryItemId: item.id,
+          userId: user.id,
+          type: restockType || (restock! > 0 ? 'PURCHASE' : 'ADJUSTMENT'),
+          quantity: restock!,
+          unitCost: restockType === 'PURCHASE' || (!restockType && restock! > 0) ? (fields.costPerUnit ?? item.costPerUnit) : null,
+          reason,
+        },
+      })
+    }
+    return tx.inventoryItem.update({
+      where: { id: item.id },
+      data: {
+        ...fields,
+        ...(supplierId !== undefined ? { supplierId: supplierId || null } : {}),
+        ...(hasMovement ? { stock: { increment: restock! } } : {}),
+      },
+    })
   })
   return NextResponse.json(updated)
 })

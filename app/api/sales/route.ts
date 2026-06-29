@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { handle, requireAuth, requirePermission, parseBody, orgScope } from '@/lib/api'
+import { handle, requirePermission, parseBody, orgScope } from '@/lib/api'
 import { PERMISSIONS } from '@/lib/permissions'
 import { saleSchema } from '@/lib/validation'
 import { audit } from '@/lib/audit'
@@ -18,7 +18,9 @@ export const GET = handle(async () => {
 })
 
 export const POST = handle(async (req) => {
-  const user = await requireAuth()
+  // Ręczne tworzenie rekordów sprzedaży wpływa na przychód/marżę/food cost i decyzje AI COO —
+  // wymaga uprawnienia finansowego (nie dowolnego zalogowanego pracownika).
+  const user = await requirePermission(PERMISSIONS.VIEW_FINANCE)
   const data = parseBody(saleSchema, await req.json())
 
   const items = data.items.map((i) => ({ ...i, total: Math.round(i.quantity * i.unitPrice * 100) / 100 }))

@@ -31,7 +31,7 @@ export default function OwnerSchedulePage() {
           <h1 className="font-display text-2xl text-[#F5F0E8]">Grafik (inteligentny)</h1>
           <p className="text-sm text-[#6B7A8D] mt-0.5">Prognoza popytu → rekomendowana obsada → automatyczny grafik</p>
         </div>
-        <button className="btn btn-gold" disabled={generate.isPending} onClick={() => generate.mutate(coverage.weekStart)}>
+        <button className="btn btn-gold" disabled={generate.isPending || !coverage?.weekStart} onClick={() => coverage?.weekStart && generate.mutate(coverage.weekStart)}>
           <Wand2 size={14} /> {generate.isPending ? 'Generowanie…' : 'Generuj grafik (przyszły tydzień)'}
         </button>
       </div>

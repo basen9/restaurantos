@@ -46,16 +46,23 @@ export async function confirmInvoice(user: Pick<AuthUser, 'id' | 'organizationId
   if (!invoice) throw new ApiError(404, 'Invoice not found')
   if (invoice.status === 'CONFIRMED') return invoice
 
+  const lines = invoice.items.filter((li) => li.inventoryItemId)
   await prisma.$transaction(async (tx) => {
-    for (const li of invoice.items) {
-      if (!li.inventoryItemId) continue
-      // Aktualizacja ostatniej ceny zakupu + przyjęcie na stan.
-      await tx.inventoryItem.update({ where: { id: li.inventoryItemId }, data: { costPerUnit: li.unitPrice, stock: { increment: li.quantity } } })
-      await tx.stockMovement.create({
-        data: { organizationId: user.organizationId, inventoryItemId: li.inventoryItemId, userId: user.id, type: 'PURCHASE', quantity: li.quantity, unitCost: li.unitPrice, reason: `Faktura ${invoice.number || invoice.id}` },
+    // Atomowy guard idempotencji: tylko jedno współbieżne zatwierdzenie wygrywa.
+    // Inaczej dwa równoległe POST-y podwoiłyby stan i nadpisałyby cenę dwukrotnie.
+    const claimed = await tx.invoice.updateMany({ where: { id: invoice.id, status: 'PENDING' }, data: { status: 'CONFIRMED', confirmedAt: new Date() } })
+    if (claimed.count === 0) return // ktoś już zatwierdził — nie aplikujemy ruchów ponownie
+
+    // Aktualizacja ostatniej ceny zakupu + przyjęcie na stan (atomic increment).
+    await Promise.all(
+      lines.map((li) => tx.inventoryItem.update({ where: { id: li.inventoryItemId! }, data: { costPerUnit: li.unitPrice, stock: { increment: li.quantity } } })),
+    )
+    // Ruchy magazynowe jednym zapisem zamiast N round-tripów.
+    if (lines.length) {
+      await tx.stockMovement.createMany({
+        data: lines.map((li) => ({ organizationId: user.organizationId, inventoryItemId: li.inventoryItemId!, userId: user.id, type: 'PURCHASE' as const, quantity: li.quantity, unitCost: li.unitPrice, reason: `Faktura ${invoice.number || invoice.id}` })),
       })
     }
-    await tx.invoice.update({ where: { id: invoice.id }, data: { status: 'CONFIRMED', confirmedAt: new Date() } })
   })
 
   await audit(user, 'invoice.confirm', 'Invoice', invoice.id, { matched: invoice.items.filter((i) => i.inventoryItemId).length, total: invoice.total })

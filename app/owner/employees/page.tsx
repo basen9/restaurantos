@@ -80,6 +80,7 @@ export default function OwnerEmployeesPage() {
               </button>
             ))}
           </div>
+          <p className="text-xs text-[#9AAAB8] flex items-start gap-1.5"><span>ℹ️</span> Zmiany uprawnień zaczną działać po ponownym zalogowaniu pracownika (sesja jest ważna do 8 godz.).</p>
           <button className="btn btn-gold w-full" disabled={save.isPending} onClick={() => save.mutate({ id: edit.id, permissions: perms })}>Zapisz uprawnienia</button>
         </div>
       </Modal>

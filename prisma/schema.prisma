@@ -383,6 +383,7 @@ model WasteReport {
 
   @@index([organizationId])
   @@index([organizationId, date])
+  @@index([organizationId, userId, createdAt])
 }
 
 model Incident {
@@ -445,6 +446,7 @@ model Notification {
 
   @@index([organizationId])
   @@index([userId, read])
+  @@index([userId, createdAt])
 }
 
 model Message {
@@ -463,6 +465,7 @@ model Message {
 
   @@index([organizationId])
   @@index([senderId, recipientId])
+  @@index([recipientId, senderId, createdAt])
 }
 
 model Availability {
@@ -619,6 +622,9 @@ model RecipeItem {
 
   quantity Float  // ilość składnika na cały yield
   unit     String @default("kg")
+
+  @@index([recipeId])
+  @@index([inventoryItemId])
 }
 
 model StockMovement {
@@ -694,6 +700,9 @@ model SaleItem {
   quantity  Int     @default(1)
   unitPrice Float   @default(0)
   total     Float   @default(0)
+
+  @@index([saleId])
+  @@index([productId])
 }
 
 // Trwałe przeglądy/analizy AI COO (historia decyzji i rekomendacji).
@@ -773,6 +782,9 @@ model InvoiceItem {
   unit      String  @default("szt")
   unitPrice Float   @default(0)
   total     Float   @default(0)
+
+  @@index([invoiceId])
+  @@index([inventoryItemId])
 }
 
 // Alerty proaktywne (silnik reguł / AI COO) — trwała kolejka decyzji.
