@@ -26,7 +26,13 @@ export function FloorBoard({ canManage }: { canManage: boolean }) {
 
   const addZone = useMutation({ mutationFn: (name: string) => fetch('/api/zones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) }).then(jsonOk), onSuccess: () => { setNewZone(''); qc.invalidateQueries({ queryKey: ['floor'] }) } })
   const delZone = useMutation({ mutationFn: (id: string) => fetch(`/api/zones/${id}`, { method: 'DELETE' }).then(jsonOk), onSuccess: () => qc.invalidateQueries({ queryKey: ['floor'] }) })
-  const moveZone = useMutation({ mutationFn: ({ id, sortOrder }: any) => fetch(`/api/zones/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sortOrder }) }).then(jsonOk), onSuccess: () => qc.invalidateQueries({ queryKey: ['floor'] }) })
+  const moveZone = useMutation({ mutationFn: (ids: string[]) => fetch('/api/zones/reorder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }).then(jsonOk), onSuccess: () => qc.invalidateQueries({ queryKey: ['floor'] }) })
+  const reorderZones = (from: number, to: number) => {
+    const ids = list.map((z: any) => z.id)
+    if (to < 0 || to >= ids.length) return
+    const [m] = ids.splice(from, 1); ids.splice(to, 0, m)
+    moveZone.mutate(ids)
+  }
   const addTable = useMutation({ mutationFn: ({ zoneId, name }: any) => fetch('/api/tables', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ zoneId, name }) }).then(jsonOk), onSuccess: () => qc.invalidateQueries({ queryKey: ['floor'] }) })
   const delTable = useMutation({ mutationFn: (id: string) => fetch(`/api/tables/${id}`, { method: 'DELETE' }).then(jsonOk), onSuccess: () => qc.invalidateQueries({ queryKey: ['floor'] }) })
 
@@ -61,8 +67,8 @@ export function FloorBoard({ canManage }: { canManage: boolean }) {
                 </div>
                 {canManage && (
                   <div className="flex items-center gap-1">
-                    <button aria-label="W górę" className="btn btn-ghost p-1.5" disabled={zi === 0} onClick={() => moveZone.mutate({ id: z.id, sortOrder: zi - 1 })}><ChevronUp size={14} /></button>
-                    <button aria-label="W dół" className="btn btn-ghost p-1.5" disabled={zi === list.length - 1} onClick={() => moveZone.mutate({ id: z.id, sortOrder: zi + 1 })}><ChevronDown size={14} /></button>
+                    <button aria-label="W górę" className="btn btn-ghost p-1.5" disabled={zi === 0 || moveZone.isPending} onClick={() => reorderZones(zi, zi - 1)}><ChevronUp size={14} /></button>
+                    <button aria-label="W dół" className="btn btn-ghost p-1.5" disabled={zi === list.length - 1 || moveZone.isPending} onClick={() => reorderZones(zi, zi + 1)}><ChevronDown size={14} /></button>
                     <button aria-label="Usuń strefę" className="btn btn-ghost p-1.5 text-red-400" onClick={() => { if (confirm(`Usunąć strefę „${z.name}" wraz ze stolikami?`)) delZone.mutate(z.id) }}><Trash2 size={14} /></button>
                   </div>
                 )}
@@ -129,7 +135,7 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
   }
 
   const items = order?.items || []
-  const total = items.reduce((s: number, i: any) => s + i.quantity * i.unitPrice, 0)
+  const total = Math.round(items.reduce((s: number, i: any) => s + i.quantity * i.unitPrice, 0) * 100) / 100
   const now = Date.now()
 
   return (

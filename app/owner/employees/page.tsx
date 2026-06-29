@@ -22,9 +22,10 @@ const PERM_OPTIONS = [
   { key: 'products.manage', label: 'Receptury / produkty' },
   { key: 'incidents.manage', label: 'Awarie' },
   { key: 'waste.view_all', label: 'Wszystkie straty' },
+  { key: 'orders.manage', label: 'Zamykanie rachunków (sala)' },
   { key: 'org.manage', label: 'Ustawienia organizacji' },
 ]
-const SHIFT_MANAGER = ['users.view', 'schedule.manage', 'shifts.view_all', 'vacations.approve', 'tasks.manage', 'incidents.manage', 'waste.view_all']
+const SHIFT_MANAGER = ['users.view', 'schedule.manage', 'shifts.view_all', 'vacations.approve', 'tasks.manage', 'incidents.manage', 'waste.view_all', 'orders.manage']
 
 export default function OwnerEmployeesPage() {
   const qc = useQueryClient()

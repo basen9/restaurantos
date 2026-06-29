@@ -15,6 +15,7 @@ export const PERMISSIONS = {
   MANAGE_PRODUCTS: 'products.manage',
   MANAGE_INCIDENTS: 'incidents.manage',
   VIEW_ALL_WASTE: 'waste.view_all',
+  MANAGE_ORDERS: 'orders.manage', // zamykanie rachunków (tworzy sprzedaż)
   MANAGE_ORG: 'org.manage',
 } as const
 
@@ -36,9 +37,11 @@ export const PERMISSION_BUNDLES = {
     PERMISSIONS.MANAGE_TASKS,
     PERMISSIONS.MANAGE_INCIDENTS,
     PERMISSIONS.VIEW_ALL_WASTE,
+    PERMISSIONS.MANAGE_ORDERS,
   ],
   ACCOUNTANT: [PERMISSIONS.VIEW_ANALYTICS, PERMISSIONS.VIEW_FINANCE],
   STOCK_KEEPER: [PERMISSIONS.MANAGE_INVENTORY, PERMISSIONS.MANAGE_PRODUCTS],
+  WAITER: [PERMISSIONS.MANAGE_ORDERS],
 } satisfies Record<string, Permission[]>
 
 export interface RbacUser {

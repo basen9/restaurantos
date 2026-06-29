@@ -2,6 +2,7 @@
 // zamiast otrzymywać cały snapshot. Każde narzędzie jest org-scoped (izolacja tenanta).
 import { prisma } from './prisma'
 import { productCostMap, cogsFor, laborCost, foodCostVariance } from './finance'
+import { summarizeOrder } from './floor'
 import type { AuthUser } from './api'
 
 type Ctx = Pick<AuthUser, 'organizationId'>
@@ -112,6 +113,29 @@ export const COO_TOOLS: CooTool[] = [
         prisma.user.count({ where: { ...org, role: 'EMPLOYEE', isActive: true } }),
       ])
       return { openIncidents, pendingVacations, openTasks, activeShifts, employees }
+    },
+  },
+  {
+    name: 'get_floor_status',
+    description: 'Stan sali na żywo: zajęte stoliki, otwarta wartość rachunków, pozycje oczekujące/w przygotowaniu/gotowe oraz stoliki czekające najdłużej na wydanie (sygnał wolnej obsługi).',
+    input_schema: { type: 'object', properties: {} },
+    execute: async (ctx) => {
+      const openOrders = await prisma.tableOrder.findMany({
+        where: { organizationId: ctx.organizationId, status: 'OPEN' },
+        include: { items: true, table: { select: { name: true } } },
+      })
+      const now = Date.now()
+      const tables = openOrders.map((o) => ({ table: o.table?.name, ...summarizeOrder(o.items, now) }))
+      const openValue = Math.round(tables.reduce((s, t) => s + t.total, 0) * 100) / 100
+      const slow = tables.filter((t) => (t.oldestUnservedMin || 0) >= 20).map((t) => ({ table: t.table, waitingMin: t.oldestUnservedMin }))
+      return {
+        occupiedTables: openOrders.length,
+        openBillsValue: openValue,
+        pendingItems: tables.reduce((s, t) => s + t.pending, 0),
+        preparingItems: tables.reduce((s, t) => s + t.preparing, 0),
+        readyItems: tables.reduce((s, t) => s + t.ready, 0),
+        slowTables: slow,
+      }
     },
   },
 ]

@@ -57,7 +57,7 @@ export function parseBody<S extends ZodTypeAny>(schema: S, data: unknown): z.inf
 }
 
 // Filtr izolacji tenanta — wszystkie zapytania muszą być zawężone do organizacji.
-export function orgScope(user: AuthUser) {
+export function orgScope(user: Pick<AuthUser, 'organizationId'>) {
   return { organizationId: user.organizationId }
 }
 
