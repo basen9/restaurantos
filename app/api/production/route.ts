@@ -1,0 +1,25 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+
+export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { searchParams } = new URL(req.url)
+  const days = parseInt(searchParams.get('days') || '7')
+  const from = new Date(); from.setDate(from.getDate() - days)
+  const items = await prisma.production.findMany({ where: { date: { gte: from } }, include: { user: { select: { name: true } } }, orderBy: { date: 'desc' } })
+  return NextResponse.json(items)
+}
+
+export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { items } = await req.json()
+  const userId = (session.user as any).id
+  const created = await prisma.$transaction(items.map((item: any) =>
+    prisma.production.create({ data: { ...item, userId } })
+  ))
+  return NextResponse.json(created, { status: 201 })
+}

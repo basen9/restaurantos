@@ -1,0 +1,288 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          String    @default("EMPLOYEE") // OWNER | MANAGER | EMPLOYEE
+  avatar        String?
+  phone         String?
+  position      String?
+  hireDate      DateTime  @default(now())
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  locationId    String?
+  location      Location? @relation(fields: [locationId], references: [id])
+
+  shifts        Shift[]
+  tasks         Task[]         @relation("TaskAssignee")
+  tasksCreated  Task[]         @relation("TaskCreator")
+  checklistRuns ChecklistRun[]
+  wasteReports  WasteReport[]
+  incidents     Incident[]
+  vacations     Vacation[]
+  shiftSwapsFrom ShiftSwap[]   @relation("SwapFrom")
+  shiftSwapsTo   ShiftSwap[]   @relation("SwapTo")
+  notifications  Notification[]
+  messages       Message[]
+  availability   Availability[]
+  inventories    Inventory[]
+  productions    Production[]
+  sentMessages   Message[]     @relation("MessageSender")
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  city      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users     User[]
+  shifts    Shift[]
+  schedules Schedule[]
+}
+
+model Schedule {
+  id         String   @id @default(cuid())
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id])
+  weekStart  DateTime
+  status     String   @default("DRAFT") // DRAFT | PUBLISHED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  shifts     Shift[]
+}
+
+model Shift {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  locationId String
+  location   Location  @relation(fields: [locationId], references: [id])
+  scheduleId String?
+  schedule   Schedule? @relation(fields: [scheduleId], references: [id])
+
+  date       DateTime
+  startTime  String    // "08:00"
+  endTime    String    // "16:00"
+  actualStart DateTime?
+  actualEnd   DateTime?
+  status     String    @default("SCHEDULED") // SCHEDULED | ACTIVE | COMPLETED | ABSENT | LATE
+
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  swaps      ShiftSwap[]
+}
+
+model ShiftSwap {
+  id          String   @id @default(cuid())
+  shiftId     String
+  shift       Shift    @relation(fields: [shiftId], references: [id])
+  fromUserId  String
+  fromUser    User     @relation("SwapFrom", fields: [fromUserId], references: [id])
+  toUserId    String?
+  toUser      User?    @relation("SwapTo", fields: [toUserId], references: [id])
+  status      String   @default("PENDING") // PENDING | ACCEPTED | REJECTED | CANCELLED
+  reason      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  priority    String   @default("MEDIUM") // LOW | MEDIUM | HIGH | URGENT
+  status      String   @default("TODO") // TODO | IN_PROGRESS | DONE | CANCELLED
+  dueDate     DateTime?
+  dueTime     String?
+
+  assigneeId  String
+  assignee    User     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creatorId   String
+  creator     User     @relation("TaskCreator", fields: [creatorId], references: [id])
+
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ChecklistTemplate {
+  id        String            @id @default(cuid())
+  name      String
+  type      String            // OPENING | CLOSING | CUSTOM
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+
+  items     ChecklistItem[]
+  runs      ChecklistRun[]
+}
+
+model ChecklistItem {
+  id          String            @id @default(cuid())
+  templateId  String
+  template    ChecklistTemplate @relation(fields: [templateId], references: [id])
+  text        String
+  order       Int               @default(0)
+  createdAt   DateTime          @default(now())
+
+  completions ChecklistCompletion[]
+}
+
+model ChecklistRun {
+  id          String            @id @default(cuid())
+  templateId  String
+  template    ChecklistTemplate @relation(fields: [templateId], references: [id])
+  userId      String
+  user        User              @relation(fields: [userId], references: [id])
+  date        DateTime          @default(now())
+  completedAt DateTime?
+  status      String            @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED | SUBMITTED
+
+  completions ChecklistCompletion[]
+}
+
+model ChecklistCompletion {
+  id        String       @id @default(cuid())
+  runId     String
+  run       ChecklistRun @relation(fields: [runId], references: [id])
+  itemId    String
+  item      ChecklistItem @relation(fields: [itemId], references: [id])
+  done      Boolean      @default(false)
+  doneAt    DateTime?
+}
+
+model WasteReport {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  date        DateTime @default(now())
+  product     String
+  quantity    Float
+  unit        String   @default("szt")
+  reason      String
+  costPerUnit Float    @default(0)
+  totalCost   Float    @default(0)
+  aiDetected  Boolean  @default(false)
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model Incident {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  category    String
+  device      String
+  priority    String   @default("MEDIUM")
+  description String
+  status      String   @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED | CLOSED
+  resolvedAt  DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Vacation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  type        String   // ANNUAL | ON_DEMAND | UNPAID | SICK | OTHER
+  startDate   DateTime
+  endDate     DateTime
+  days        Int
+  status      String   @default("PENDING") // PENDING | APPROVED | REJECTED | CANCELLED
+  reason      String?
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  body      String
+  type      String   @default("INFO") // INFO | SUCCESS | WARNING | ERROR | TASK | SCHEDULE | VACATION
+  read      Boolean  @default(false)
+  readAt    DateTime?
+  link      String?
+  createdAt DateTime @default(now())
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  senderId    String
+  sender      User     @relation("MessageSender", fields: [senderId], references: [id])
+  recipientId String
+  recipient   User     @relation(fields: [recipientId], references: [id])
+  content     String
+  read        Boolean  @default(false)
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model Availability {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  dayOfWeek Int      // 0=Mon ... 6=Sun
+  available Boolean  @default(true)
+  fromTime  String?  // "08:00"
+  toTime    String?  // "20:00"
+  notes     String?
+  updatedAt DateTime @updatedAt
+}
+
+model Inventory {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  date        DateTime @default(now())
+  product     String
+  unit        String
+  expected    Float
+  actual      Float
+  difference  Float
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model Production {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      DateTime @default(now())
+  product   String
+  quantity  Int
+  unit      String   @default("szt")
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  category    String
+  unit        String   @default("szt")
+  costPerUnit Float    @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
