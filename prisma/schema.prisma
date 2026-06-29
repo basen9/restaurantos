@@ -135,6 +135,7 @@ model Organization {
   cooReviews         CooReview[]
   invoices           Invoice[]
   ksefConnection     KsefConnection?
+  alerts             Alert[]
   auditLogs          AuditLog[]
 }
 
@@ -771,6 +772,33 @@ model InvoiceItem {
   unit      String  @default("szt")
   unitPrice Float   @default(0)
   total     Float   @default(0)
+}
+
+// Alerty proaktywne (silnik reguł / AI COO) — trwała kolejka decyzji.
+enum AlertStatus {
+  OPEN
+  DISMISSED
+  RESOLVED
+}
+
+model Alert {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  dedupeKey String        // identyfikator reguły+kontekstu (idempotencja w oknie czasu)
+  type      String        // np. "low_stock", "food_cost", "labor", "variance", "incidents", "vacations"
+  severity  Priority      @default(MEDIUM)
+  title     String
+  detail    String
+  actionHref String?
+  status    AlertStatus   @default(OPEN)
+  metadata  Json?
+  createdAt DateTime      @default(now())
+  resolvedAt DateTime?
+
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, dedupeKey, status])
 }
 
 model AuditLog {

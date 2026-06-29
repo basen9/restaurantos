@@ -38,6 +38,7 @@ const ownerNav = [
   { section: 'Centrum dowodzenia', items: [
     { href: '/owner', label: 'Dashboard CEO', icon: LayoutDashboard },
     { href: '/owner/coo', label: 'AI COO', icon: Bot },
+    { href: '/owner/alerts', label: 'Alerty', icon: AlertTriangle, badge: 'alerts' },
     { href: '/owner/analytics', label: 'Analityka', icon: BarChart3 },
   ]},
   { section: 'Zespół', items: [
@@ -60,7 +61,7 @@ const ownerNav = [
   ]},
 ]
 
-export function Sidebar({ notifCount = 0, taskCount = 0 }: { notifCount?: number; taskCount?: number }) {
+export function Sidebar({ notifCount = 0, taskCount = 0, alertCount = 0 }: { notifCount?: number; taskCount?: number; alertCount?: number }) {
   const pathname = usePathname()
   const { data: session } = useSession()
   const role = (session?.user as any)?.role
@@ -88,7 +89,8 @@ export function Sidebar({ notifCount = 0, taskCount = 0 }: { notifCount?: number
             <div className="px-3 py-1.5 text-[10px] font-semibold text-[#6B7A8D] uppercase tracking-widest">{section.section}</div>
             {section.items.map(item => {
               const active = pathname === item.href || (item.href !== '/dashboard' && item.href !== '/owner' && pathname.startsWith(item.href))
-              const count = (item as any).badge === 'notifs' ? notifCount : (item as any).badge === 'tasks' ? taskCount : 0
+              const b = (item as any).badge
+              const count = b === 'notifs' ? notifCount : b === 'tasks' ? taskCount : b === 'alerts' ? alertCount : 0
               return (
                 <Link key={item.href} href={item.href}
                   className={cn('flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all relative mb-0.5',

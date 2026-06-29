@@ -56,6 +56,8 @@ export const saleSchema = z.object({
     .max(100),
 })
 
+export const alertDecisionSchema = z.object({ status: z.enum(['DISMISSED', 'RESOLVED']) }).strict()
+
 export const scheduleGenerateSchema = z.object({
   weekStart: z.coerce.date(),
 })

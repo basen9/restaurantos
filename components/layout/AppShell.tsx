@@ -29,6 +29,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     refetchInterval: 60000,
   })
 
+  const isOwner = (session?.user as any)?.role === 'OWNER'
+  const { data: alerts = [] } = useQuery({
+    queryKey: ['alerts'],
+    queryFn: () => fetch('/api/alerts').then(r => r.json()),
+    refetchInterval: 60000,
+    enabled: isOwner,
+  })
+  const alertCount = Array.isArray(alerts) ? alerts.length : 0
+
   const unreadNotifs = Array.isArray(notifs) ? notifs.filter((n: any) => !n.read).length : 0
   const pendingTasks = Array.isArray(tasks) ? tasks.filter((t: any) => t.status === 'TODO' || t.status === 'IN_PROGRESS').length : 0
 
@@ -58,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-deep">
       {/* Sidebar — statyczny na desktopie */}
       <div className="hidden md:block w-56 flex-shrink-0 h-full overflow-hidden">
-        <Sidebar notifCount={unreadNotifs} taskCount={pendingTasks} />
+        <Sidebar notifCount={unreadNotifs} taskCount={pendingTasks} alertCount={alertCount} />
       </div>
 
       {/* Sidebar — drawer na mobile */}
@@ -66,7 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <div className="absolute left-0 top-0 bottom-0 w-64 max-w-[80vw] animate-fade-in">
-            <Sidebar notifCount={unreadNotifs} taskCount={pendingTasks} />
+            <Sidebar notifCount={unreadNotifs} taskCount={pendingTasks} alertCount={alertCount} />
           </div>
         </div>
       )}
