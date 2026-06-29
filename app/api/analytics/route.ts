@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { handle, requirePermission, orgScope } from '@/lib/api'
 import { PERMISSIONS } from '@/lib/permissions'
+import { productCostMap, cogsFor } from '@/lib/finance'
 import { prisma } from '@/lib/prisma'
 
 // Payload "centrum dowodzenia" — odpowiada na 5 pytań właściciela w 30 s:
@@ -86,6 +87,24 @@ export const GET = handle(async () => {
     .filter((x) => x.pct != null)
   const avgFoodCost = foodCostItems.length ? Math.round(foodCostItems.reduce((s, x) => s + (x.pct || 0), 0) / foodCostItems.length) : null
 
+  // Finanse z POS/sprzedaży
+  const [salesTodayRows, salesYestRows, salesWeekAgg, posConn, costMap] = await Promise.all([
+    prisma.sale.findMany({ where: { ...org, soldAt: { gte: startToday } }, include: { items: { select: { productId: true, quantity: true } } } }),
+    prisma.sale.aggregate({ where: { ...org, soldAt: { gte: startYesterday, lt: startToday } }, _sum: { total: true } }),
+    prisma.sale.aggregate({ where: { ...org, soldAt: { gte: weekAgo } }, _sum: { total: true } }),
+    prisma.posConnection.findUnique({ where: { organizationId: user.organizationId } }),
+    productCostMap(user.organizationId),
+  ])
+  const salesToday = Math.round(salesTodayRows.reduce((s, x) => s + x.total, 0))
+  const salesYesterday = Math.round(salesYestRows._sum.total || 0)
+  const salesWeek = Math.round(salesWeekAgg._sum.total || 0)
+  const cogsToday = cogsFor(salesTodayRows.flatMap((s) => s.items), costMap)
+  const hasSales = salesToday > 0
+  const profitToday = hasSales ? Math.round(salesToday - cogsToday) : null
+  const marginPct = hasSales ? Math.round(((salesToday - cogsToday) / salesToday) * 100) : null
+  const foodCostActualPct = hasSales ? Math.round((cogsToday / salesToday) * 100) : null
+  const posConnected = !!posConn?.connected
+
   // Skrzynka decyzji (reguły) — wstęp do AI COO. Każda decyzja ma akcję.
   type Dec = { id: string; severity: 'high' | 'medium' | 'low'; title: string; detail: string; href: string; cta: string }
   const decisions: Dec[] = []
@@ -95,13 +114,23 @@ export const GET = handle(async () => {
   if (wasteYesterdayCost > 0 && wasteTodayCost > wasteYesterdayCost * 1.5) decisions.push({ id: 'trend', severity: 'medium', title: 'Straty rosną dzień do dnia', detail: `Dziś ${wasteTodayCost.toFixed(0)} zł vs wczoraj ${wasteYesterdayCost.toFixed(0)} zł.`, href: '/owner/waste', cta: 'Sprawdź' })
   if (topProducts[0] && topProducts[0].cost > 0 && !decisions.find((d) => d.id === 'waste')) decisions.push({ id: 'waste-top', severity: 'low', title: `Najwięcej strat w m-cu: ${topProducts[0].product}`, detail: `${topProducts[0].cost.toFixed(0)} zł — rozważ mniejszą produkcję lub promocję.`, href: '/owner/waste', cta: 'Analiza' })
   if (lowStock.length > 0) decisions.push({ id: 'order', severity: 'high', title: `${lowStock.length} pozycji poniżej minimum`, detail: `Sugerowane zamówienie ok. ${orderTotalCost} zł — uniknij braków.`, href: '/owner/warehouse', cta: 'Zamów' })
-  if (avgFoodCost != null && avgFoodCost > 35) decisions.push({ id: 'fc', severity: 'medium', title: `Wysoki food cost: ${avgFoodCost}%`, detail: 'Średnia z receptur przekracza 35% — sprawdź ceny składników i porcje.', href: '/owner/recipes', cta: 'Receptury' })
+  if (foodCostActualPct != null && foodCostActualPct > 35) decisions.push({ id: 'fc-real', severity: 'high', title: `Food cost rzeczywisty: ${foodCostActualPct}%`, detail: 'Liczony ze sprzedaży przekracza 35% — sprawdź porcje, ceny i straty.', href: '/owner/recipes', cta: 'Receptury' })
+  else if (avgFoodCost != null && avgFoodCost > 35) decisions.push({ id: 'fc', severity: 'medium', title: `Wysoki food cost: ${avgFoodCost}%`, detail: 'Średnia z receptur przekracza 35% — sprawdź ceny składników i porcje.', href: '/owner/recipes', cta: 'Receptury' })
   if (openTasks > 0) decisions.push({ id: 'tasks', severity: 'low', title: `${openTasks} otwarte zadanie(a)`, detail: 'Część może wymagać Twojej decyzji lub przydziału.', href: '/owner/tasks', cta: 'Zobacz' })
 
   const wasteTrendPct = wasteYesterdayCost > 0 ? Math.round(((wasteTodayCost - wasteYesterdayCost) / wasteYesterdayCost) * 100) : null
 
   return NextResponse.json({
-    finance: { posConnected: false, salesToday: null, salesYesterday: null, salesWeek: null, profitToday: null, marginPct: null, foodCostPct: avgFoodCost, laborCostPct: null },
+    finance: {
+      posConnected,
+      salesToday: posConnected ? salesToday : null,
+      salesYesterday: posConnected ? salesYesterday : null,
+      salesWeek: posConnected ? salesWeek : null,
+      profitToday,
+      marginPct,
+      foodCostPct: foodCostActualPct ?? avgFoodCost,
+      laborCostPct: null,
+    },
     waste: { today: wasteTodayCost, yesterday: wasteYesterdayCost, week: wasteWeekCost, month: wasteMonthCost, trendPct: wasteTrendPct, topProducts },
     foodCost: { avgPct: avgFoodCost, items: foodCostItems },
     locations: locationRanking,

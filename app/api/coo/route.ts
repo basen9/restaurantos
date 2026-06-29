@@ -17,6 +17,10 @@ Zasady:
 function ruleBasedReview(s: BusinessSnapshot): string {
   const out: string[] = []
   out.push(`📊 Przegląd operacyjny — ${s.date}`)
+  if (s.finance.posConnected && s.finance.salesToday != null)
+    out.push(`• Sprzedaż dziś: ${s.finance.salesToday} zł · zysk po koszcie surowca ~${s.finance.profitToday} zł · marża ${s.finance.marginPct}% · food cost rzeczywisty ${s.finance.foodCostActualPct}%.`)
+  else
+    out.push('• Sprzedaż: brak danych POS — podłącz POS, by śledzić przychód, marżę i rzeczywisty food cost.')
   if (s.inventory.lowStock.length)
     out.push(`• Zaopatrzenie: ${s.inventory.lowStock.length} pozycji poniżej minimum (szac. zamówienie ~${s.inventory.orderTotal} zł). Złóż zamówienie dziś, by uniknąć braków: ${s.inventory.lowStock.map((i) => i.name).join(', ')}.`)
   if (s.foodCost.avgPct != null)

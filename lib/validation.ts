@@ -23,6 +23,19 @@ export const aiSchema = z.object({
     .optional(),
 })
 
+export const saleSchema = z.object({
+  soldAt: z.coerce.date().optional(),
+  items: z
+    .array(z.object({
+      productId: z.string().optional(),
+      name: z.string().min(1).max(160),
+      quantity: z.number().int().positive(),
+      unitPrice: z.number().nonnegative(),
+    }))
+    .min(1)
+    .max(100),
+})
+
 export const cooSchema = z.object({
   mode: z.enum(['chat', 'review']).default('chat'),
   message: z.string().max(4000).optional(),

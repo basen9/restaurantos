@@ -130,6 +130,8 @@ model Organization {
   inventoryItems     InventoryItem[]
   recipes            Recipe[]
   stockMovements     StockMovement[]
+  sales              Sale[]
+  posConnection      PosConnection?
   auditLogs          AuditLog[]
 }
 
@@ -633,6 +635,57 @@ model StockMovement {
 // ──────────────────────────────────────────────────────────────────────────
 // AUDYT (kto, co, kiedy) — wymóg dla operacji wrażliwych
 // ──────────────────────────────────────────────────────────────────────────
+
+// ──────────────────────────────────────────────────────────────────────────
+// SPRZEDAŻ / POS (źródło przychodu — finanse, marża, food cost rzeczywisty)
+// ──────────────────────────────────────────────────────────────────────────
+
+enum SaleSource {
+  MANUAL // ręczne wprowadzenie
+  MOCK   // generator demonstracyjny
+  POS    // integracja z systemem POS
+}
+
+model PosConnection {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  provider   String   @default("mock") // mock | toast | square | gopos ...
+  connected  Boolean  @default(false)
+  lastSyncAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Sale {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  locationId     String?
+
+  externalId String?    // id z systemu POS (idempotencja synchronizacji)
+  soldAt     DateTime   @default(now())
+  total      Float      @default(0)
+  source     SaleSource @default(MANUAL)
+  createdAt  DateTime   @default(now())
+
+  items SaleItem[]
+
+  @@index([organizationId, soldAt])
+  @@index([organizationId, externalId])
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String? // denormalizowane (sprzedaż zachowuje nazwę nawet po zmianie produktu)
+  name      String
+  quantity  Int     @default(1)
+  unitPrice Float   @default(0)
+  total     Float   @default(0)
+}
 
 model AuditLog {
   id             String   @id @default(cuid())
