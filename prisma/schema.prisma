@@ -149,6 +149,7 @@ model User {
   password    String
   role        Role     @default(EMPLOYEE)
   permissions String[] @default([]) // dodatkowe uprawnienia nadane pracownikowi
+  hourlyRate  Float    @default(0)  // stawka godzinowa (koszt pracy)
   avatar      String?
   phone       String?
   position    String?

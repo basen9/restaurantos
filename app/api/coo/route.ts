@@ -18,9 +18,11 @@ function ruleBasedReview(s: BusinessSnapshot): string {
   const out: string[] = []
   out.push(`📊 Przegląd operacyjny — ${s.date}`)
   if (s.finance.posConnected && s.finance.salesToday != null)
-    out.push(`• Sprzedaż dziś: ${s.finance.salesToday} zł · zysk po koszcie surowca ~${s.finance.profitToday} zł · marża ${s.finance.marginPct}% · food cost rzeczywisty ${s.finance.foodCostActualPct}%.`)
+    out.push(`• Sprzedaż dziś: ${s.finance.salesToday} zł · zysk po koszcie surowca ~${s.finance.profitToday} zł · marża ${s.finance.marginPct}% · food cost ${s.finance.foodCostActualPct}% · koszt pracy ${s.finance.laborCostPct ?? '—'}%.`)
   else
     out.push('• Sprzedaż: brak danych POS — podłącz POS, by śledzić przychód, marżę i rzeczywisty food cost.')
+  if (s.variance.length)
+    out.push(`• Wariancja zużycia: ${s.variance[0].name} — z magazynu zeszło o ${s.variance[0].variance} ${s.variance[0].unit} więcej niż wynika ze sprzedaży (~${s.variance[0].varianceCost} zł). Sprawdź nadprodukcję/straty/porcjowanie.`)
   if (s.inventory.lowStock.length)
     out.push(`• Zaopatrzenie: ${s.inventory.lowStock.length} pozycji poniżej minimum (szac. zamówienie ~${s.inventory.orderTotal} zł). Złóż zamówienie dziś, by uniknąć braków: ${s.inventory.lowStock.map((i) => i.name).join(', ')}.`)
   if (s.foodCost.avgPct != null)

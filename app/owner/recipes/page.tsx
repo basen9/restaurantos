@@ -16,6 +16,7 @@ export default function RecipesPage() {
   const { data: recipes = [], isLoading } = useQuery({ queryKey: ['recipes'], queryFn: () => fetch('/api/recipes').then(r => r.json()) })
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => fetch('/api/products').then(r => r.json()) })
   const { data: stock = [] } = useQuery({ queryKey: ['inventory-items'], queryFn: () => fetch('/api/inventory-items').then(r => r.json()) })
+  const { data: analytics } = useQuery({ queryKey: ['analytics'], queryFn: () => fetch('/api/analytics').then(r => r.json()) })
 
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ productId: '', yield: '1' })
@@ -57,6 +58,25 @@ export default function RecipesPage() {
         <StatCard label="Receptury" value={list.length} sub="zdefiniowane" />
         <StatCard label="Bez receptury" value={availableProducts.length} sub="produktów" accent={availableProducts.length > 0 ? 'gold' : undefined} />
       </div>
+
+      {/* Wariancja food cost — detektor strat/nadprodukcji */}
+      {Array.isArray(analytics?.foodCostVariance) && analytics.foodCostVariance.length > 0 && (
+        <div className="card p-5 mb-6" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
+          <div className="text-xs font-semibold text-[#6B7A8D] uppercase tracking-widest mb-1">Wariancja zużycia (m-c)</div>
+          <div className="text-[11px] text-[#6B7A8D] mb-3">Rzeczywiste zużycie magazynu vs wynikające ze sprzedaży. Dodatnia = możliwa nadprodukcja, straty lub błędy porcjowania.</div>
+          <div className="space-y-1.5">
+            {analytics.foodCostVariance.map((v: any) => (
+              <div key={v.inventoryItemId} className="flex items-center justify-between p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                <span className="text-sm text-[#E8ECF0]">{v.name}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-[#6B7A8D]">sprzedaż {v.theoretical} {v.unit} · magazyn {v.actual} {v.unit}</span>
+                  <Badge variant={v.varianceCost > 30 ? 'red' : 'orange'}>+{v.variance} {v.unit} (~{v.varianceCost} zł)</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {list.length === 0 ? <EmptyState icon="👨‍🍳" text="Brak receptur" sub="Dodaj recepturę, aby liczyć food cost i marżę" /> : (
         <div className="space-y-3">

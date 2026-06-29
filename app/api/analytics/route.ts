@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { handle, requirePermission, orgScope } from '@/lib/api'
 import { PERMISSIONS } from '@/lib/permissions'
-import { productCostMap, cogsFor } from '@/lib/finance'
+import { productCostMap, cogsFor, laborCost, foodCostVariance } from '@/lib/finance'
 import { prisma } from '@/lib/prisma'
 
 // Payload "centrum dowodzenia" — odpowiada na 5 pytań właściciela w 30 s:
@@ -105,6 +105,16 @@ export const GET = handle(async () => {
   const foodCostActualPct = hasSales ? Math.round((cogsToday / salesToday) * 100) : null
   const posConnected = !!posConn?.connected
 
+  // Koszt pracy + wariancja food cost
+  const [laborToday, variance] = await Promise.all([
+    laborCost(user.organizationId, startToday, endToday),
+    foodCostVariance(user.organizationId, monthStart),
+  ])
+  const laborCostPct = hasSales ? Math.round((laborToday / salesToday) * 100) : null
+  const operatingProfit = hasSales ? Math.round(salesToday - cogsToday - laborToday) : null
+  const topVariance = variance.filter((v) => v.varianceCost > 0).slice(0, 5)
+  const worstVariance = topVariance[0] || null
+
   // Skrzynka decyzji (reguły) — wstęp do AI COO. Każda decyzja ma akcję.
   type Dec = { id: string; severity: 'high' | 'medium' | 'low'; title: string; detail: string; href: string; cta: string }
   const decisions: Dec[] = []
@@ -116,6 +126,8 @@ export const GET = handle(async () => {
   if (lowStock.length > 0) decisions.push({ id: 'order', severity: 'high', title: `${lowStock.length} pozycji poniżej minimum`, detail: `Sugerowane zamówienie ok. ${orderTotalCost} zł — uniknij braków.`, href: '/owner/warehouse', cta: 'Zamów' })
   if (foodCostActualPct != null && foodCostActualPct > 35) decisions.push({ id: 'fc-real', severity: 'high', title: `Food cost rzeczywisty: ${foodCostActualPct}%`, detail: 'Liczony ze sprzedaży przekracza 35% — sprawdź porcje, ceny i straty.', href: '/owner/recipes', cta: 'Receptury' })
   else if (avgFoodCost != null && avgFoodCost > 35) decisions.push({ id: 'fc', severity: 'medium', title: `Wysoki food cost: ${avgFoodCost}%`, detail: 'Średnia z receptur przekracza 35% — sprawdź ceny składników i porcje.', href: '/owner/recipes', cta: 'Receptury' })
+  if (laborCostPct != null && laborCostPct > 30) decisions.push({ id: 'labor', severity: 'medium', title: `Koszt pracy wysoki: ${laborCostPct}%`, detail: `Dziś ~${laborToday} zł przy sprzedaży ${salesToday} zł — rozważ korektę obsady.`, href: '/owner/schedule', cta: 'Grafik' })
+  if (worstVariance && worstVariance.varianceCost > 30) decisions.push({ id: 'variance', severity: 'high', title: `Wariancja zużycia: ${worstVariance.name}`, detail: `Z magazynu zeszło o ${worstVariance.variance} ${worstVariance.unit} więcej niż wynika ze sprzedaży (~${worstVariance.varianceCost} zł). Możliwa nadprodukcja/straty/błędy porcji.`, href: '/owner/recipes', cta: 'Sprawdź' })
   if (openTasks > 0) decisions.push({ id: 'tasks', severity: 'low', title: `${openTasks} otwarte zadanie(a)`, detail: 'Część może wymagać Twojej decyzji lub przydziału.', href: '/owner/tasks', cta: 'Zobacz' })
 
   const wasteTrendPct = wasteYesterdayCost > 0 ? Math.round(((wasteTodayCost - wasteYesterdayCost) / wasteYesterdayCost) * 100) : null
@@ -126,11 +138,13 @@ export const GET = handle(async () => {
       salesToday: posConnected ? salesToday : null,
       salesYesterday: posConnected ? salesYesterday : null,
       salesWeek: posConnected ? salesWeek : null,
-      profitToday,
+      profitToday: operatingProfit,
       marginPct,
       foodCostPct: foodCostActualPct ?? avgFoodCost,
-      laborCostPct: null,
+      laborCostPct,
+      laborCostToday: laborToday,
     },
+    foodCostVariance: topVariance,
     waste: { today: wasteTodayCost, yesterday: wasteYesterdayCost, week: wasteWeekCost, month: wasteMonthCost, trendPct: wasteTrendPct, topProducts },
     foodCost: { avgPct: avgFoodCost, items: foodCostItems },
     locations: locationRanking,

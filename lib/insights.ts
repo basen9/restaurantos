@@ -1,11 +1,12 @@
 // Snapshot biznesu dla AI COO — kompaktowy obraz operacyjny tenanta.
 import { prisma } from './prisma'
-import { productCostMap, cogsFor } from './finance'
+import { productCostMap, cogsFor, laborCost, foodCostVariance } from './finance'
 import type { AuthUser } from './api'
 
 export interface BusinessSnapshot {
   date: string
-  finance: { posConnected: boolean; salesToday: number | null; profitToday: number | null; marginPct: number | null; foodCostActualPct: number | null }
+  finance: { posConnected: boolean; salesToday: number | null; profitToday: number | null; marginPct: number | null; foodCostActualPct: number | null; laborCostPct: number | null }
+  variance: { name: string; variance: number; unit: string; varianceCost: number }[]
   waste: { month: number; topProducts: { product: string; cost: number }[] }
   foodCost: { avgPct: number | null; worst: { name: string; pct: number }[] }
   inventory: { lowStock: { name: string; stock: number; minStock: number; unit: string; estOrderCost: number }[]; orderTotal: number }
@@ -18,11 +19,14 @@ export async function getBusinessSnapshot(user: Pick<AuthUser, 'organizationId'>
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
   const startToday = new Date(now); startToday.setHours(0, 0, 0, 0)
+  const endToday = new Date(now); endToday.setHours(23, 59, 59, 999)
 
-  const [salesToday, posConn, costMap] = await Promise.all([
+  const [salesToday, posConn, costMap, laborToday, varianceRows] = await Promise.all([
     prisma.sale.findMany({ where: { ...org, soldAt: { gte: startToday } }, include: { items: { select: { productId: true, quantity: true } } } }),
     prisma.posConnection.findUnique({ where: { organizationId: user.organizationId } }),
     productCostMap(user.organizationId),
+    laborCost(user.organizationId, startToday, endToday),
+    foodCostVariance(user.organizationId, monthStart),
   ])
   const salesTotal = Math.round(salesToday.reduce((s, x) => s + x.total, 0))
   const cogs = cogsFor(salesToday.flatMap((s) => s.items), costMap)
@@ -69,7 +73,9 @@ export async function getBusinessSnapshot(user: Pick<AuthUser, 'organizationId'>
       profitToday: hasSales ? Math.round(salesTotal - cogs) : null,
       marginPct: hasSales ? Math.round(((salesTotal - cogs) / salesTotal) * 100) : null,
       foodCostActualPct: hasSales ? Math.round((cogs / salesTotal) * 100) : null,
+      laborCostPct: hasSales ? Math.round((laborToday / salesTotal) * 100) : null,
     },
+    variance: varianceRows.filter((v) => v.varianceCost > 0).slice(0, 3),
     waste: { month: Math.round(wasteMonth._sum.totalCost || 0), topProducts: topWaste.map((w) => ({ product: w.product, cost: Math.round(w._sum.totalCost || 0) })) },
     foodCost: { avgPct: avgFoodCost, worst },
     inventory: { lowStock, orderTotal },

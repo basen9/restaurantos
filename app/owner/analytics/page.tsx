@@ -51,11 +51,12 @@ export default function AnalyticsPage() {
       </div>
 
       {/* KPI finansowe */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <StatCard label="Sprzedaż dziś" value={f.salesToday != null ? `${f.salesToday} zł` : '—'} accent="gold" />
-        <StatCard label="Zysk dziś (szac.)" value={f.profitToday != null ? `${f.profitToday} zł` : '—'} sub="po koszcie surowca" accent={f.profitToday != null ? 'green' : undefined} />
-        <StatCard label="Marża" value={f.marginPct != null ? `${f.marginPct}%` : '—'} />
+        <StatCard label="Zysk dziś (szac.)" value={f.profitToday != null ? `${f.profitToday} zł` : '—'} sub="sprzedaż − surowiec − praca" accent={f.profitToday != null ? 'green' : undefined} />
+        <StatCard label="Marża surowca" value={f.marginPct != null ? `${f.marginPct}%` : '—'} />
         <StatCard label="Food cost rzeczyw." value={f.foodCostPct != null ? `${f.foodCostPct}%` : '—'} accent={f.foodCostPct != null && f.foodCostPct > 35 ? 'red' : 'green'} />
+        <StatCard label="Koszt pracy" value={f.laborCostPct != null ? `${f.laborCostPct}%` : '—'} sub={f.laborCostToday ? `${f.laborCostToday} zł dziś` : undefined} accent={f.laborCostPct != null && f.laborCostPct > 30 ? 'red' : undefined} />
       </div>
 
       {/* Ostatnia sprzedaż */}
