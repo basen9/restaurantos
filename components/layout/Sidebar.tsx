@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Calendar, Clock, Umbrella, RefreshCw, CheckSquare, ListTodo,
   Package, Trash2, AlertTriangle, Bell, MessageSquare, Bot, BarChart3,
-  Users, Settings, ChevronRight
+  Users, Settings, ChevronRight, ChefHat, Warehouse
 } from 'lucide-react'
 
 const employeeNav = [
@@ -35,16 +35,23 @@ const employeeNav = [
   ]},
 ]
 
-const managerNav = [
-  { section: 'Zarządzanie', items: [
-    { href: '/manager', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/manager/schedule', label: 'Grafiki', icon: Calendar },
-    { href: '/manager/employees', label: 'Pracownicy', icon: Users },
-    { href: '/manager/tasks', label: 'Zadania', icon: CheckSquare },
-    { href: '/manager/vacations', label: 'Urlopy', icon: Umbrella },
-    { href: '/manager/waste', label: 'Straty', icon: Trash2 },
-    { href: '/manager/incidents', label: 'Awarie', icon: AlertTriangle },
-    { href: '/manager/analytics', label: 'Analityka', icon: BarChart3 },
+const ownerNav = [
+  { section: 'Centrum dowodzenia', items: [
+    { href: '/owner', label: 'Dashboard CEO', icon: LayoutDashboard },
+    { href: '/owner/coo', label: 'AI COO', icon: Bot },
+    { href: '/owner/analytics', label: 'Analityka', icon: BarChart3 },
+  ]},
+  { section: 'Zespół', items: [
+    { href: '/owner/employees', label: 'Pracownicy', icon: Users },
+    { href: '/owner/schedule', label: 'Grafiki', icon: Calendar },
+    { href: '/owner/tasks', label: 'Zadania', icon: CheckSquare },
+    { href: '/owner/vacations', label: 'Urlopy', icon: Umbrella },
+  ]},
+  { section: 'Operacje', items: [
+    { href: '/owner/warehouse', label: 'Magazyn', icon: Warehouse },
+    { href: '/owner/recipes', label: 'Receptury & food cost', icon: ChefHat },
+    { href: '/owner/waste', label: 'Straty', icon: Trash2 },
+    { href: '/owner/incidents', label: 'Awarie', icon: AlertTriangle },
   ]},
   { section: 'Komunikacja', items: [
     { href: '/notifications', label: 'Powiadomienia', icon: Bell, badge: 'notifs' },
@@ -56,8 +63,8 @@ export function Sidebar({ notifCount = 0, taskCount = 0 }: { notifCount?: number
   const pathname = usePathname()
   const { data: session } = useSession()
   const role = (session?.user as any)?.role
-  const isManager = role === 'MANAGER' || role === 'OWNER'
-  const nav = isManager ? managerNav : employeeNav
+  const isOwner = role === 'OWNER'
+  const nav = isOwner ? ownerNav : employeeNav
 
   return (
     <aside className="flex flex-col h-full" style={{background: '#1A1D27', borderRight: '1px solid rgba(255,255,255,0.07)'}}>
@@ -79,7 +86,7 @@ export function Sidebar({ notifCount = 0, taskCount = 0 }: { notifCount?: number
           <div key={section.section} className="mb-4">
             <div className="px-3 py-1.5 text-[10px] font-semibold text-[#6B7A8D] uppercase tracking-widest">{section.section}</div>
             {section.items.map(item => {
-              const active = pathname === item.href || (item.href !== '/dashboard' && item.href !== '/manager' && pathname.startsWith(item.href))
+              const active = pathname === item.href || (item.href !== '/dashboard' && item.href !== '/owner' && pathname.startsWith(item.href))
               const count = (item as any).badge === 'notifs' ? notifCount : (item as any).badge === 'tasks' ? taskCount : 0
               return (
                 <Link key={item.href} href={item.href}
@@ -96,17 +103,6 @@ export function Sidebar({ notifCount = 0, taskCount = 0 }: { notifCount?: number
           </div>
         ))}
       </nav>
-
-      {/* Role switcher for manager/owner */}
-      {isManager && (
-        <div className="px-3 py-2 border-t border-white/5">
-          <Link href={pathname.startsWith('/manager') ? '/dashboard' : '/manager'}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-[#6B7A8D] hover:text-[#E8ECF0] hover:bg-white/5 transition-all">
-            <RefreshCw size={13} />
-            {pathname.startsWith('/manager') ? 'Widok pracownika' : 'Widok managera'}
-          </Link>
-        </div>
-      )}
     </aside>
   )
 }

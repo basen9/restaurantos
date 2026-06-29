@@ -22,11 +22,32 @@ export function DashboardClient() {
   const { data: tasks = [] } = useQuery({ queryKey: ['tasks'], queryFn: () => fetch('/api/tasks').then(r => r.json()) })
   const { data: notifs = [] } = useQuery({ queryKey: ['notifications'], queryFn: () => fetch('/api/notifications').then(r => r.json()) })
   const { data: waste = [] } = useQuery({ queryKey: ['waste'], queryFn: () => fetch('/api/waste').then(r => r.json()) })
+  const { data: clock } = useQuery({ queryKey: ['clock'], queryFn: () => fetch('/api/shifts/clock').then(r => r.json()) })
+  const { data: vacations = [] } = useQuery({ queryKey: ['vacations'], queryFn: () => fetch('/api/vacations').then(r => r.json()) })
 
   const todoTasks = Array.isArray(tasks) ? tasks.filter((t: any) => t.status === 'TODO' || t.status === 'IN_PROGRESS') : []
   const unreadNotifs = Array.isArray(notifs) ? notifs.filter((n: any) => !n.read) : []
   const todayWaste = Array.isArray(waste) ? waste.filter((w: any) => new Date(w.date).toDateString() === new Date().toDateString()) : []
   const todayWasteCost = todayWaste.reduce((sum: number, w: any) => sum + (w.totalCost || 0), 0)
+
+  // Pozostały urlop wypoczynkowy liczony z realnych danych (limit 26 dni/rok).
+  const ANNUAL_QUOTA = 26
+  const thisYear = new Date().getFullYear()
+  const usedAnnual = Array.isArray(vacations)
+    ? vacations.filter((v: any) => v.type === 'ANNUAL' && v.status === 'APPROVED' && new Date(v.startDate).getFullYear() === thisYear).reduce((s: number, v: any) => s + (v.days || 0), 0)
+    : 0
+  const remainingVacation = Math.max(0, ANNUAL_QUOTA - usedAnnual)
+
+  // Trwały stan zmiany — synchronizacja z bazą (źródło prawdy), nie tylko stan lokalny.
+  useEffect(() => {
+    if (clock?.active && clock.shift?.actualStart) {
+      setShiftActive(true)
+      setShiftStart(new Date(clock.shift.actualStart).getTime())
+    } else if (clock && !clock.active) {
+      setShiftActive(false)
+      setShiftStart(null)
+    }
+  }, [clock])
 
   useEffect(() => {
     if (!shiftActive || !shiftStart) return
@@ -45,6 +66,7 @@ export function DashboardClient() {
       if (!res.ok) throw new Error()
       if (!shiftActive) { setShiftActive(true); setShiftStart(Date.now()); toast.success('Zmiana rozpoczęta! Dobrej pracy 💪') }
       else { setShiftActive(false); setShiftStart(null); setElapsed('0:00'); toast.success('Zmiana zakończona. Do zobaczenia! 👋') }
+      qc.invalidateQueries({ queryKey: ['clock'] })
     } catch { toast.error('Błąd — spróbuj ponownie') }
     setLoading(false)
   }
@@ -77,7 +99,7 @@ export function DashboardClient() {
         {shiftActive && (
           <div className="grid grid-cols-4 gap-4 mt-5 pt-5 border-t border-white/5">
             <div><div className="text-xs text-[#6B7A8D] uppercase tracking-wider mb-1">Czas pracy</div><div className="text-xl font-bold text-yellow-400">{elapsed}</div></div>
-            <div><div className="text-xs text-[#6B7A8D] uppercase tracking-wider mb-1">Zaplanowano</div><div className="text-xl font-bold text-[#F5F0E8]">8:00</div></div>
+            <div><div className="text-xs text-[#6B7A8D] uppercase tracking-wider mb-1">Zaplanowano</div><div className="text-xl font-bold text-[#F5F0E8]">{clock?.shift?.startTime || '—'}</div></div>
             <div><div className="text-xs text-[#6B7A8D] uppercase tracking-wider mb-1">Lokal</div><div className="text-xl font-bold text-[#F5F0E8]">{user?.locationName?.split(' ')[0]}</div></div>
             <div><div className="text-xs text-[#6B7A8D] uppercase tracking-wider mb-1">Status</div><div className="text-xl font-bold text-green-400">Aktywna</div></div>
           </div>
@@ -89,7 +111,7 @@ export function DashboardClient() {
         <StatCard label="Zadania dziś" value={todoTasks.length} sub="do wykonania" accent={todoTasks.length > 0 ? 'gold' : undefined} />
         <StatCard label="Powiadomienia" value={unreadNotifs.length} sub="nieprzeczytanych" accent={unreadNotifs.length > 0 ? 'blue' : undefined} />
         <StatCard label="Straty dziś" value={`${todayWasteCost.toFixed(0)} zł`} sub={`${todayWaste.length} zgłoszeń`} accent={todayWasteCost > 50 ? 'red' : undefined} />
-        <StatCard label="Urlop" value="18 dni" sub="pozostało w roku" />
+        <StatCard label="Urlop" value={`${remainingVacation} dni`} sub="pozostało w roku" />
       </div>
 
       {/* Quick Actions + Tasks */}

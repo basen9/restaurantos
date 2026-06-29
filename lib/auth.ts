@@ -15,9 +15,10 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) return null
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
-          include: { location: true },
+          include: { location: true, organization: true },
         })
         if (!user || !user.isActive) return null
+        if (!user.organization?.isActive) return null
         const valid = await bcrypt.compare(credentials.password, user.password)
         if (!valid) return null
         return {
@@ -25,7 +26,10 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           role: user.role,
+          permissions: user.permissions,
           position: user.position,
+          organizationId: user.organizationId,
+          organizationName: user.organization?.name,
           locationId: user.locationId,
           locationName: user.location?.name,
         }
@@ -35,9 +39,12 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
+        token.id = (user as any).id
         token.role = (user as any).role
+        token.permissions = (user as any).permissions
         token.position = (user as any).position
+        token.organizationId = (user as any).organizationId
+        token.organizationName = (user as any).organizationName
         token.locationId = (user as any).locationId
         token.locationName = (user as any).locationName
       }
@@ -45,11 +52,15 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id
-        ;(session.user as any).role = token.role
-        ;(session.user as any).position = token.position
-        ;(session.user as any).locationId = token.locationId
-        ;(session.user as any).locationName = token.locationName
+        const u = session.user as any
+        u.id = token.id
+        u.role = token.role
+        u.permissions = token.permissions
+        u.position = token.position
+        u.organizationId = token.organizationId
+        u.organizationName = token.organizationName
+        u.locationId = token.locationId
+        u.locationName = token.locationName
       }
       return session
     },

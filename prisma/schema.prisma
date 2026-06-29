@@ -1,48 +1,193 @@
+// WorkOS — AI Operating System dla gastronomii
+// Schemat danych: PostgreSQL, multi-tenant (Organization), RBAC oparty na uprawnieniach.
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// ENUMY (porządkowanie modeli danych — integralność na poziomie bazy)
+// ──────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  EMPLOYEE
+}
+
+enum ScheduleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum ShiftStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  ABSENT
+  LATE
+}
+
+enum SwapStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum ChecklistType {
+  OPENING
+  CLOSING
+  CUSTOM
+}
+
+enum ChecklistRunStatus {
+  IN_PROGRESS
+  COMPLETED
+  SUBMITTED
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum VacationType {
+  ANNUAL
+  ON_DEMAND
+  UNPAID
+  SICK
+  OTHER
+}
+
+enum VacationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  TASK
+  SCHEDULE
+  VACATION
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// TENANT
+// ──────────────────────────────────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      String   @default("FREE") // FREE | PRO | ENTERPRISE
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users              User[]
+  locations          Location[]
+  schedules          Schedule[]
+  shifts             Shift[]
+  shiftSwaps         ShiftSwap[]
+  tasks              Task[]
+  checklistTemplates ChecklistTemplate[]
+  checklistRuns      ChecklistRun[]
+  wasteReports       WasteReport[]
+  incidents          Incident[]
+  vacations          Vacation[]
+  notifications      Notification[]
+  messages           Message[]
+  availability       Availability[]
+  inventories        Inventory[]
+  productions        Production[]
+  products           Product[]
+  suppliers          Supplier[]
+  inventoryItems     InventoryItem[]
+  recipes            Recipe[]
+  stockMovements     StockMovement[]
+  sales              Sale[]
+  posConnection      PosConnection?
+  auditLogs          AuditLog[]
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// USERS & AUTH
+// ──────────────────────────────────────────────────────────────────────────
+
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  password      String
-  role          String    @default("EMPLOYEE") // OWNER | MANAGER | EMPLOYEE
-  avatar        String?
-  phone         String?
-  position      String?
-  hireDate      DateTime  @default(now())
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  locationId    String?
-  location      Location? @relation(fields: [locationId], references: [id])
+  name        String
+  email       String   @unique
+  password    String
+  role        Role     @default(EMPLOYEE)
+  permissions String[] @default([]) // dodatkowe uprawnienia nadane pracownikowi
+  hourlyRate  Float    @default(0)  // stawka godzinowa (koszt pracy)
+  avatar      String?
+  phone       String?
+  position    String?
+  hireDate    DateTime @default(now())
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  shifts        Shift[]
-  tasks         Task[]         @relation("TaskAssignee")
-  tasksCreated  Task[]         @relation("TaskCreator")
-  checklistRuns ChecklistRun[]
-  wasteReports  WasteReport[]
-  incidents     Incident[]
-  vacations     Vacation[]
-  shiftSwapsFrom ShiftSwap[]   @relation("SwapFrom")
-  shiftSwapsTo   ShiftSwap[]   @relation("SwapTo")
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id])
+
+  shifts         Shift[]
+  tasks          Task[]         @relation("TaskAssignee")
+  tasksCreated   Task[]         @relation("TaskCreator")
+  checklistRuns  ChecklistRun[]
+  wasteReports   WasteReport[]
+  incidents      Incident[]
+  vacations      Vacation[]
+  shiftSwapsFrom ShiftSwap[]    @relation("SwapFrom")
+  shiftSwapsTo   ShiftSwap[]    @relation("SwapTo")
   notifications  Notification[]
-  messages       Message[]
   availability   Availability[]
   inventories    Inventory[]
   productions    Production[]
-  sentMessages   Message[]     @relation("MessageSender")
+  sentMessages   Message[]      @relation("MessageSender")
+  recvMessages   Message[]      @relation("MessageRecipient")
+  stockMovements StockMovement[]
+  auditLogs      AuditLog[]
+
+  @@index([organizationId])
+  @@index([organizationId, role])
 }
 
 model Location {
-  id        String   @id @default(cuid())
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   name      String
   address   String?
   city      String?
@@ -52,125 +197,174 @@ model Location {
   users     User[]
   shifts    Shift[]
   schedules Schedule[]
+
+  @@index([organizationId])
 }
 
-model Schedule {
-  id         String   @id @default(cuid())
-  locationId String
-  location   Location @relation(fields: [locationId], references: [id])
-  weekStart  DateTime
-  status     String   @default("DRAFT") // DRAFT | PUBLISHED
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+// ──────────────────────────────────────────────────────────────────────────
+// HARMONOGRAM
+// ──────────────────────────────────────────────────────────────────────────
 
-  shifts     Shift[]
+model Schedule {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  locationId     String
+  location       Location @relation(fields: [locationId], references: [id])
+
+  weekStart DateTime
+  status    ScheduleStatus @default(DRAFT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shifts Shift[]
+
+  @@index([organizationId])
+  @@index([organizationId, locationId, weekStart])
 }
 
 model Shift {
-  id         String    @id @default(cuid())
-  userId     String
-  user       User      @relation(fields: [userId], references: [id])
-  locationId String
-  location   Location  @relation(fields: [locationId], references: [id])
-  scheduleId String?
-  schedule   Schedule? @relation(fields: [scheduleId], references: [id])
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  locationId     String
+  location       Location @relation(fields: [locationId], references: [id])
+  scheduleId     String?
+  schedule       Schedule? @relation(fields: [scheduleId], references: [id])
 
-  date       DateTime
-  startTime  String    // "08:00"
-  endTime    String    // "16:00"
+  date        DateTime
+  startTime   String
+  endTime     String
   actualStart DateTime?
   actualEnd   DateTime?
-  status     String    @default("SCHEDULED") // SCHEDULED | ACTIVE | COMPLETED | ABSENT | LATE
+  status      ShiftStatus @default(SCHEDULED)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  notes      String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  swaps ShiftSwap[]
 
-  swaps      ShiftSwap[]
+  @@index([organizationId])
+  @@index([organizationId, userId, date])
+  @@index([organizationId, status])
 }
 
 model ShiftSwap {
-  id          String   @id @default(cuid())
-  shiftId     String
-  shift       Shift    @relation(fields: [shiftId], references: [id])
-  fromUserId  String
-  fromUser    User     @relation("SwapFrom", fields: [fromUserId], references: [id])
-  toUserId    String?
-  toUser      User?    @relation("SwapTo", fields: [toUserId], references: [id])
-  status      String   @default("PENDING") // PENDING | ACCEPTED | REJECTED | CANCELLED
-  reason      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  shiftId        String
+  shift          Shift    @relation(fields: [shiftId], references: [id])
+  fromUserId     String
+  fromUser       User     @relation("SwapFrom", fields: [fromUserId], references: [id])
+  toUserId       String?
+  toUser         User?    @relation("SwapTo", fields: [toUserId], references: [id])
+
+  status    SwapStatus @default(PENDING)
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// ZADANIA & CHECKLISTY
+// ──────────────────────────────────────────────────────────────────────────
+
 model Task {
-  id          String   @id @default(cuid())
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   title       String
   description String?
-  priority    String   @default("MEDIUM") // LOW | MEDIUM | HIGH | URGENT
-  status      String   @default("TODO") // TODO | IN_PROGRESS | DONE | CANCELLED
+  priority    Priority   @default(MEDIUM)
+  status      TaskStatus @default(TODO)
   dueDate     DateTime?
   dueTime     String?
 
-  assigneeId  String
-  assignee    User     @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  creatorId   String
-  creator     User     @relation("TaskCreator", fields: [creatorId], references: [id])
+  assigneeId String
+  assignee   User   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creatorId  String
+  creator    User   @relation("TaskCreator", fields: [creatorId], references: [id])
 
   completedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, assigneeId, status])
 }
 
 model ChecklistTemplate {
-  id        String            @id @default(cuid())
-  name      String
-  type      String            // OPENING | CLOSING | CUSTOM
-  isActive  Boolean           @default(true)
-  createdAt DateTime          @default(now())
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  items     ChecklistItem[]
-  runs      ChecklistRun[]
+  name      String
+  type      ChecklistType
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  items ChecklistItem[]
+  runs  ChecklistRun[]
+
+  @@index([organizationId])
 }
 
 model ChecklistItem {
-  id          String            @id @default(cuid())
-  templateId  String
-  template    ChecklistTemplate @relation(fields: [templateId], references: [id])
-  text        String
-  order       Int               @default(0)
-  createdAt   DateTime          @default(now())
+  id         String   @id @default(cuid())
+  templateId String
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  text       String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
 
   completions ChecklistCompletion[]
 }
 
 model ChecklistRun {
-  id          String            @id @default(cuid())
-  templateId  String
-  template    ChecklistTemplate @relation(fields: [templateId], references: [id])
-  userId      String
-  user        User              @relation(fields: [userId], references: [id])
-  date        DateTime          @default(now())
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  templateId     String
+  template       ChecklistTemplate @relation(fields: [templateId], references: [id])
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+
+  date        DateTime @default(now())
   completedAt DateTime?
-  status      String            @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED | SUBMITTED
+  status      ChecklistRunStatus @default(IN_PROGRESS)
 
   completions ChecklistCompletion[]
+
+  @@index([organizationId])
 }
 
 model ChecklistCompletion {
-  id        String       @id @default(cuid())
-  runId     String
-  run       ChecklistRun @relation(fields: [runId], references: [id])
-  itemId    String
-  item      ChecklistItem @relation(fields: [itemId], references: [id])
-  done      Boolean      @default(false)
-  doneAt    DateTime?
+  id     String   @id @default(cuid())
+  runId  String
+  run    ChecklistRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  itemId String
+  item   ChecklistItem @relation(fields: [itemId], references: [id])
+  done   Boolean  @default(false)
+  doneAt DateTime?
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// OPERACJE (straty, awarie, magazyn, produkcja)
+// ──────────────────────────────────────────────────────────────────────────
+
 model WasteReport {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+
   date        DateTime @default(now())
   product     String
   quantity    Float
@@ -181,108 +375,331 @@ model WasteReport {
   aiDetected  Boolean  @default(false)
   notes       String?
   createdAt   DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([organizationId, date])
 }
 
 model Incident {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+
   category    String
   device      String
-  priority    String   @default("MEDIUM")
+  priority    Priority @default(MEDIUM)
   description String
-  status      String   @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED | CLOSED
+  status      IncidentStatus @default(OPEN)
   resolvedAt  DateTime?
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, status])
 }
 
 model Vacation {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  type        String   // ANNUAL | ON_DEMAND | UNPAID | SICK | OTHER
-  startDate   DateTime
-  endDate     DateTime
-  days        Int
-  status      String   @default("PENDING") // PENDING | APPROVED | REJECTED | CANCELLED
-  reason      String?
-  approvedBy  String?
-  approvedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+
+  type       VacationType
+  startDate  DateTime
+  endDate    DateTime
+  days       Int
+  status     VacationStatus @default(PENDING)
+  reason     String?
+  approvedBy String?
+  approvedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, status])
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+
   title     String
   body      String
-  type      String   @default("INFO") // INFO | SUCCESS | WARNING | ERROR | TASK | SCHEDULE | VACATION
+  type      NotificationType @default(INFO)
   read      Boolean  @default(false)
   readAt    DateTime?
   link      String?
   createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([userId, read])
 }
 
 model Message {
-  id          String   @id @default(cuid())
-  senderId    String
-  sender      User     @relation("MessageSender", fields: [senderId], references: [id])
-  recipientId String
-  recipient   User     @relation(fields: [recipientId], references: [id])
-  content     String
-  read        Boolean  @default(false)
-  readAt      DateTime?
-  createdAt   DateTime @default(now())
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User     @relation("MessageSender", fields: [senderId], references: [id])
+  recipientId    String
+  recipient      User     @relation("MessageRecipient", fields: [recipientId], references: [id])
+
+  content   String
+  read      Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([senderId, recipientId])
 }
 
 model Availability {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  dayOfWeek Int      // 0=Mon ... 6=Sun
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+
+  dayOfWeek Int
   available Boolean  @default(true)
-  fromTime  String?  // "08:00"
-  toTime    String?  // "20:00"
+  fromTime  String?
+  toTime    String?
   notes     String?
   updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@unique([userId, dayOfWeek])
 }
 
 model Inventory {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  date        DateTime @default(now())
-  product     String
-  unit        String
-  expected    Float
-  actual      Float
-  difference  Float
-  notes       String?
-  createdAt   DateTime @default(now())
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+
+  date       DateTime @default(now())
+  product    String
+  unit       String
+  expected   Float
+  actual     Float
+  difference Float
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@index([organizationId])
 }
 
 model Production {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+
   date      DateTime @default(now())
   product   String
   quantity  Int
   unit      String   @default("szt")
   notes     String?
   createdAt DateTime @default(now())
+
+  @@index([organizationId])
 }
 
 model Product {
-  id          String   @id @default(cuid())
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   name        String
   category    String
   unit        String   @default("szt")
-  costPerUnit Float    @default(0)
+  costPerUnit Float    @default(0) // koszt jednostkowy (np. dla strat)
+  price       Float    @default(0) // cena sprzedaży (do food cost %)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
+
+  recipe Recipe?
+
+  @@index([organizationId])
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// MAGAZYN · DOSTAWCY · RECEPTURY · FOOD COST (pętla pieniędzy)
+// ──────────────────────────────────────────────────────────────────────────
+
+enum MovementType {
+  PURCHASE    // przyjęcie (zakup)
+  USAGE       // zużycie (produkcja/sprzedaż)
+  WASTE       // strata
+  ADJUSTMENT  // korekta (remanent)
+  PRODUCTION  // produkcja wyrobu
+}
+
+model Supplier {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name      String
+  contact   String?
+  email     String?
+  phone     String?
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  items InventoryItem[]
+
+  @@index([organizationId])
+}
+
+model InventoryItem {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierId     String?
+  supplier       Supplier? @relation(fields: [supplierId], references: [id])
+
+  name        String
+  category    String   @default("Inne")
+  unit        String   @default("kg")
+  stock       Float    @default(0)   // bieżący stan
+  minStock    Float    @default(0)   // poziom minimalny (alert/zamówienie)
+  costPerUnit Float    @default(0)   // ostatnia cena zakupu
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  recipeItems RecipeItem[]
+  movements   StockMovement[]
+
+  @@index([organizationId])
+  @@index([organizationId, category])
+}
+
+model Recipe {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  productId      String   @unique
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  yield     Int      @default(1) // ile sztuk wyrobu z receptury
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items RecipeItem[]
+
+  @@index([organizationId])
+}
+
+model RecipeItem {
+  id              String   @id @default(cuid())
+  recipeId        String
+  recipe          Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  quantity Float  // ilość składnika na cały yield
+  unit     String @default("kg")
+}
+
+model StockMovement {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id])
+
+  type      MovementType
+  quantity  Float    // +przyjęcie / -zużycie
+  unitCost  Float?   // koszt jednostkowy przy przyjęciu
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, inventoryItemId])
+  @@index([organizationId, createdAt])
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// AUDYT (kto, co, kiedy) — wymóg dla operacji wrażliwych
+// ──────────────────────────────────────────────────────────────────────────
+
+// ──────────────────────────────────────────────────────────────────────────
+// SPRZEDAŻ / POS (źródło przychodu — finanse, marża, food cost rzeczywisty)
+// ──────────────────────────────────────────────────────────────────────────
+
+enum SaleSource {
+  MANUAL // ręczne wprowadzenie
+  MOCK   // generator demonstracyjny
+  POS    // integracja z systemem POS
+}
+
+model PosConnection {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  provider   String   @default("mock") // mock | toast | square | gopos ...
+  connected  Boolean  @default(false)
+  lastSyncAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Sale {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  locationId     String?
+
+  externalId String?    // id z systemu POS (idempotencja synchronizacji)
+  soldAt     DateTime   @default(now())
+  total      Float      @default(0)
+  source     SaleSource @default(MANUAL)
+  createdAt  DateTime   @default(now())
+
+  items SaleItem[]
+
+  @@index([organizationId, soldAt])
+  @@index([organizationId, externalId])
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String? // denormalizowane (sprzedaż zachowuje nazwę nawet po zmianie produktu)
+  name      String
+  quantity  Int     @default(1)
+  unitPrice Float   @default(0)
+  total     Float   @default(0)
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id])
+
+  action     String   // np. "vacation.approve"
+  entityType String   // np. "Vacation"
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([organizationId, createdAt])
 }

@@ -35,9 +35,11 @@ Otwórz: **http://localhost:3000**
 
 | Rola | Email | Hasło |
 |------|-------|-------|
-| Właściciel | owner@restaurantos.pl | owner123 |
-| Manager | manager@restaurantos.pl | manager123 |
-| Pracownik | anna@restaurantos.pl | anna123 |
+| Właściciel (OWNER) | owner@workos.pl | owner123 |
+| Pracownik z uprawnieniami kierownika (EMPLOYEE) | lead@workos.pl | lead123 |
+| Pracownik (EMPLOYEE) | anna@workos.pl | anna123 |
+
+> System ma tylko dwie role: **OWNER** i **EMPLOYEE**. Dodatkowe uprawnienia („kierownik zmiany", „księgowa", „magazynier") nadaje się pracownikowi jako **zestawy uprawnień**, nie osobne role.
 
 ---
 
@@ -64,7 +66,7 @@ Otwórz: **http://localhost:3000**
 ## Stack techniczny
 - **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS
 - **Backend:** Next.js API Routes
-- **Baza danych:** SQLite (lokalnie) → PostgreSQL (produkcja, jedna linijka w .env)
+- **Baza danych:** PostgreSQL (multi-tenant, Prisma Migrate)
 - **ORM:** Prisma
 - **Auth:** NextAuth.js (JWT + bcrypt)
 - **State:** React Query + Zustand

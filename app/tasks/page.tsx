@@ -13,14 +13,15 @@ import { cn } from '@/lib/utils'
 
 export default function TasksPage() {
   const { data: session } = useSession()
-  const role = (session?.user as any)?.role
+  const user = session?.user as any
+  const canManage = user?.role === 'OWNER' || (user?.permissions || []).includes('tasks.manage')
   const qc = useQueryClient()
   const [filter, setFilter] = useState<'ALL'|'TODO'|'IN_PROGRESS'|'DONE'>('ALL')
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ title: '', description: '', priority: 'MEDIUM', dueTime: '', assigneeId: '' })
 
   const { data: tasks = [], isLoading } = useQuery({ queryKey: ['tasks'], queryFn: () => fetch('/api/tasks').then(r => r.json()) })
-  const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: () => fetch('/api/users').then(r => r.json()), enabled: role !== 'EMPLOYEE' })
+  const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: () => fetch('/api/users').then(r => r.json()), enabled: canManage })
 
   const updateTask = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => fetch(`/api/tasks/${id}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) }),
@@ -49,7 +50,7 @@ export default function TasksPage() {
           <h1 className="font-display text-2xl text-[#F5F0E8]">Zadania</h1>
           <p className="text-sm text-[#6B7A8D] mt-0.5">Przydzielone i zarządzane</p>
         </div>
-        {role !== 'EMPLOYEE' && (
+        {canManage && (
           <button className="btn btn-gold" onClick={() => setShowAdd(true)}><Plus size={14}/> Nowe zadanie</button>
         )}
       </div>
@@ -91,7 +92,7 @@ export default function TasksPage() {
                 {task.status === 'IN_PROGRESS' && (
                   <button className="btn btn-success py-1.5 px-2.5 text-xs" onClick={() => updateTask.mutate({ id: task.id, data: { status: 'DONE' } })}><Check size={12}/> Gotowe</button>
                 )}
-                {role !== 'EMPLOYEE' && (
+                {canManage && (
                   <button className="btn btn-danger py-1.5 px-2 text-xs" onClick={() => deleteTask.mutate(task.id)}><Trash2 size={12}/></button>
                 )}
               </div>
