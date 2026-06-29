@@ -20,6 +20,10 @@ Status: ✅ wdrożone · 🟦 zaplanowane · 💡 pomysł.
 
 ## B. Najbliższe wysokowartościowe (Etap 1–2)
 
+> Aktualizacja Etap 1–2: ✅ Skrzynka decyzji (B1) wdrożona jako silnik reguł na dashboardzie.
+> ✅ Magazyn + receptury + food cost teoretyczny (B2 częściowo — została wariancja vs rzeczywisty).
+> ✅ Tryb mobilny powłoki (B3). Następny krok: wariancja food cost + AI COO z tool-use.
+
 ### B1. 🟠 Skrzynka decyzji (Decision Inbox) zamiast pulpitu liczb
 - **Problem:** konkurenci (Toast, Square, Lightspeed) pokazują *raporty*; właściciel i tak musi sam wyciągać wnioski.
 - **Propozycja:** centralny widok rekomendacji z **akcją** i **wpływem finansowym** („Zmień dostawcę masła → −1 200 zł/mc [Zatwierdź]").
