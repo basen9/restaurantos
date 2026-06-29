@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { handle, requireAuth, parseBody } from '@/lib/api'
 import { aiSchema } from '@/lib/validation'

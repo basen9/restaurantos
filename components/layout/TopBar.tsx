@@ -1,21 +1,25 @@
 'use client'
 import { useSession, signOut } from 'next-auth/react'
-import { Bell, LogOut, ChevronDown } from 'lucide-react'
+import { Bell, LogOut, ChevronDown, Menu } from 'lucide-react'
 import { useState } from 'react'
 import { getInitials } from '@/lib/utils'
 import Link from 'next/link'
 
-export function TopBar({ notifCount = 0, shiftActive = false, shiftElapsed = '' }: {
-  notifCount?: number; shiftActive?: boolean; shiftElapsed?: string
+export function TopBar({ notifCount = 0, shiftActive = false, shiftElapsed = '', onMenu }: {
+  notifCount?: number; shiftActive?: boolean; shiftElapsed?: string; onMenu?: () => void
 }) {
   const { data: session } = useSession()
   const user = session?.user as any
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
-    <header className="flex items-center justify-between px-6 h-14 border-b border-white/5" style={{background: '#1A1D27'}}>
-      {/* Left: shift status */}
+    <header className="flex items-center justify-between px-4 sm:px-6 h-14 border-b border-white/5" style={{background: '#1A1D27'}}>
+      {/* Left: mobile menu + shift status */}
       <div className="flex items-center gap-3">
+        <button onClick={onMenu} aria-label="Otwórz menu"
+          className="md:hidden p-2 -ml-2 rounded-lg text-[#9AAAB8] hover:text-[#E8ECF0] hover:bg-white/5 transition-all">
+          <Menu size={18} />
+        </button>
         {shiftActive ? (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold"
                style={{background: 'rgba(232,185,35,0.1)', border: '1px solid rgba(232,185,35,0.3)', color: '#E8B923'}}>

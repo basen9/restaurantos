@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { handle, requireAuth, requirePermission, parseBody, orgScope, ApiError } from '@/lib/api'
 import { hasPermission, PERMISSIONS } from '@/lib/permissions'
