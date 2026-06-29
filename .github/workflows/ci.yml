@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: workos
+          POSTGRES_PASSWORD: workos
+          POSTGRES_DB: workos
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U workos" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://workos:workos@localhost:5432/workos?schema=public
+      NEXTAUTH_SECRET: ci-secret-ci-secret-ci-secret-32chars
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npx prisma generate
+      - run: npm run test          # vitest (unit)
+      - run: npx tsc --noEmit       # typecheck
+      - run: npm run build          # production build
+      - run: node prisma/seed.js    # seed for integration smoke
+      - name: Start server and wait
+        run: |
+          npm run start &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/api/health && break || sleep 2; done
+      - run: npm run smoke          # integration smoke (API/RBAC)

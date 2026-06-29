@@ -66,6 +66,8 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: { signIn: '/login' },
-  session: { strategy: 'jwt' },
+  // 8h sesja roboczej zmiany — ogranicza okno, w którym zmienione uprawnienia
+  // pozostają nieaktywne do ponownego zalogowania (znana cecha JWT).
+  session: { strategy: 'jwt', maxAge: 8 * 60 * 60 },
   secret: process.env.NEXTAUTH_SECRET,
 }
