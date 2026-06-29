@@ -1,25 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { handle, requireAuth, orgScope } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export const GET = handle(async () => {
+  const user = await requireAuth()
   const notifs = await prisma.notification.findMany({
-    where: { userId: (session.user as any).id },
+    where: { ...orgScope(user), userId: user.id },
     orderBy: { createdAt: 'desc' },
-    take: 50
+    take: 50,
   })
   return NextResponse.json(notifs)
-}
+})
 
-export async function PATCH(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export const PATCH = handle(async () => {
+  const user = await requireAuth()
   await prisma.notification.updateMany({
-    where: { userId: (session.user as any).id, read: false },
-    data: { read: true, readAt: new Date() }
+    where: { ...orgScope(user), userId: user.id, read: false },
+    data: { read: true, readAt: new Date() },
   })
   return NextResponse.json({ ok: true })
-}
+})

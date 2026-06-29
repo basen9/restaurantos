@@ -3,85 +3,98 @@ const bcrypt = require('bcryptjs')
 
 const prisma = new PrismaClient()
 
+// Pakiet uprawnień "kierownika zmiany" — pracownik z rozszerzonym dostępem.
+// (Manager nie jest już osobną rolą, lecz zestawem uprawnień.)
+const SHIFT_MANAGER = [
+  'users.view',
+  'schedule.manage',
+  'shifts.view_all',
+  'vacations.approve',
+  'tasks.manage',
+  'incidents.manage',
+  'waste.view_all',
+]
+
 async function main() {
   console.log('🌱 Seeding database...')
 
-  // Location
+  // Organizacja (tenant)
+  const org = await prisma.organization.upsert({
+    where: { slug: 'krakow-bakery' },
+    update: {},
+    create: { id: 'org-demo', name: 'Kraków Bakery', slug: 'krakow-bakery', plan: 'PRO' },
+  })
+
+  // Lokal
   const location = await prisma.location.upsert({
     where: { id: 'loc-krakow' },
     update: {},
-    create: { id: 'loc-krakow', name: 'Kraków Rynek', address: 'Rynek Główny 1', city: 'Kraków' }
+    create: { id: 'loc-krakow', organizationId: org.id, name: 'Kraków Rynek', address: 'Rynek Główny 1', city: 'Kraków' },
   })
 
-  // Users
   const hash = (p) => bcrypt.hashSync(p, 10)
 
   const owner = await prisma.user.upsert({
-    where: { email: 'owner@restaurantos.pl' },
+    where: { email: 'owner@workos.pl' },
     update: {},
     create: {
-      id: 'user-owner', name: 'Marek Kowalski', email: 'owner@restaurantos.pl',
-      password: hash('owner123'), role: 'OWNER', position: 'Właściciel',
-      locationId: location.id
-    }
+      id: 'user-owner', organizationId: org.id, name: 'Marek Kowalski', email: 'owner@workos.pl',
+      password: hash('owner123'), role: 'OWNER', position: 'Właściciel', locationId: location.id,
+    },
   })
 
-  const manager = await prisma.user.upsert({
-    where: { email: 'manager@restaurantos.pl' },
-    update: {},
+  // Dawny "manager" → pracownik z pakietem uprawnień kierownika zmiany.
+  const lead = await prisma.user.upsert({
+    where: { email: 'lead@workos.pl' },
+    update: { permissions: SHIFT_MANAGER },
     create: {
-      id: 'user-manager', name: 'Tomasz Nowak', email: 'manager@restaurantos.pl',
-      password: hash('manager123'), role: 'MANAGER', position: 'Manager',
-      locationId: location.id
-    }
+      id: 'user-lead', organizationId: org.id, name: 'Tomasz Nowak', email: 'lead@workos.pl',
+      password: hash('lead123'), role: 'EMPLOYEE', position: 'Kierownik zmiany',
+      permissions: SHIFT_MANAGER, locationId: location.id,
+    },
   })
 
   const employee = await prisma.user.upsert({
-    where: { email: 'anna@restaurantos.pl' },
+    where: { email: 'anna@workos.pl' },
     update: {},
     create: {
-      id: 'user-anna', name: 'Anna Wiśniewska', email: 'anna@restaurantos.pl',
-      password: hash('anna123'), role: 'EMPLOYEE', position: 'Barista',
-      locationId: location.id
-    }
+      id: 'user-anna', organizationId: org.id, name: 'Anna Wiśniewska', email: 'anna@workos.pl',
+      password: hash('anna123'), role: 'EMPLOYEE', position: 'Barista', locationId: location.id,
+    },
   })
 
   const emp2 = await prisma.user.upsert({
-    where: { email: 'marek@restaurantos.pl' },
+    where: { email: 'marek@workos.pl' },
     update: {},
     create: {
-      id: 'user-marek', name: 'Marek Zając', email: 'marek@restaurantos.pl',
-      password: hash('marek123'), role: 'EMPLOYEE', position: 'Piekarz',
-      locationId: location.id
-    }
+      id: 'user-marek', organizationId: org.id, name: 'Marek Zając', email: 'marek@workos.pl',
+      password: hash('marek123'), role: 'EMPLOYEE', position: 'Piekarz', locationId: location.id,
+    },
   })
 
-  // Shifts for this week
+  // Zmiany na ten tydzień
   const today = new Date()
-  today.setHours(0,0,0,0)
-  const days = [-3,-2,-1,0,1,2]
-  for (const d of days) {
+  today.setHours(0, 0, 0, 0)
+  for (const d of [-3, -2, -1, 0, 1, 2]) {
     const date = new Date(today)
     date.setDate(date.getDate() + d)
     await prisma.shift.upsert({
       where: { id: `shift-anna-${d}` },
       update: {},
       create: {
-        id: `shift-anna-${d}`,
-        userId: employee.id, locationId: location.id,
-        date, startTime: d % 2 === 0 ? '08:00' : '12:00',
-        endTime: d % 2 === 0 ? '16:00' : '20:00',
-        status: d < 0 ? 'COMPLETED' : d === 0 ? 'SCHEDULED' : 'SCHEDULED'
-      }
+        id: `shift-anna-${d}`, organizationId: org.id, userId: employee.id, locationId: location.id,
+        date, startTime: d % 2 === 0 ? '08:00' : '12:00', endTime: d % 2 === 0 ? '16:00' : '20:00',
+        status: d < 0 ? 'COMPLETED' : 'SCHEDULED',
+      },
     })
   }
 
-  // Checklist templates
-  const opening = await prisma.checklistTemplate.upsert({
+  // Szablony checklist
+  await prisma.checklistTemplate.upsert({
     where: { id: 'tpl-opening' },
     update: {},
     create: {
-      id: 'tpl-opening', name: 'Otwarcie lokalu', type: 'OPENING',
+      id: 'tpl-opening', organizationId: org.id, name: 'Otwarcie lokalu', type: 'OPENING',
       items: {
         create: [
           { text: 'Uruchom ekspres do kawy i sprawdź wodę', order: 1 },
@@ -90,125 +103,95 @@ async function main() {
           { text: 'Sprawdź datę ważności produktów', order: 4 },
           { text: 'Uzupełnij opakowania i serwetki', order: 5 },
           { text: 'Wytrzyj lady i stoły', order: 6 },
-          { text: 'Sprawdź poziom kawy i mleka', order: 7 },
-          { text: 'Włącz terminal płatniczy i przetestuj', order: 8 },
-          { text: 'Sprawdź muzykę i oświetlenie', order: 9 },
-          { text: 'Uzupełnij drobne w kasie', order: 10 },
-        ]
-      }
-    }
+          { text: 'Włącz terminal płatniczy i przetestuj', order: 7 },
+        ],
+      },
+    },
   })
 
-  const closing = await prisma.checklistTemplate.upsert({
+  await prisma.checklistTemplate.upsert({
     where: { id: 'tpl-closing' },
     update: {},
     create: {
-      id: 'tpl-closing', name: 'Zamknięcie lokalu', type: 'CLOSING',
+      id: 'tpl-closing', organizationId: org.id, name: 'Zamknięcie lokalu', type: 'CLOSING',
       items: {
         create: [
           { text: 'Wykonaj remanent strat', order: 1 },
           { text: 'Zgłoś straty w systemie', order: 2 },
           { text: 'Zamknij kasę i przelicz utarg', order: 3 },
           { text: 'Wyczyść ekspres do kawy', order: 4 },
-          { text: 'Umyj i ułóż naczynia', order: 5 },
-          { text: 'Posprzątaj stanowisko pracy', order: 6 },
-          { text: 'Sprawdź i zamknij lodówki', order: 7 },
-          { text: 'Wyłącz urządzenia elektryczne', order: 8 },
-          { text: 'Sprawdź alarm i zamknij lokal', order: 9 },
-        ]
-      }
-    }
+          { text: 'Sprawdź i zamknij lodówki', order: 5 },
+          { text: 'Wyłącz urządzenia i zamknij lokal', order: 6 },
+        ],
+      },
+    },
   })
 
-  // Tasks
+  // Zadania
   await prisma.task.upsert({
-    where: { id: 'task-1' },
-    update: {},
-    create: {
-      id: 'task-1', title: 'Wykonaj remanent lodówek', priority: 'HIGH',
-      status: 'TODO', dueTime: '14:00',
-      assigneeId: employee.id, creatorId: manager.id
-    }
+    where: { id: 'task-1' }, update: {},
+    create: { id: 'task-1', organizationId: org.id, title: 'Wykonaj remanent lodówek', priority: 'HIGH', status: 'TODO', dueTime: '14:00', assigneeId: employee.id, creatorId: lead.id },
   })
   await prisma.task.upsert({
-    where: { id: 'task-2' },
-    update: {},
-    create: {
-      id: 'task-2', title: 'Sprawdź dostawę i odznacz produkty', priority: 'MEDIUM',
-      status: 'TODO', dueTime: '16:00',
-      assigneeId: employee.id, creatorId: manager.id
-    }
+    where: { id: 'task-2' }, update: {},
+    create: { id: 'task-2', organizationId: org.id, title: 'Sprawdź dostawę i odznacz produkty', priority: 'MEDIUM', status: 'TODO', dueTime: '16:00', assigneeId: employee.id, creatorId: lead.id },
   })
   await prisma.task.upsert({
-    where: { id: 'task-3' },
-    update: {},
-    create: {
-      id: 'task-3', title: 'Sprawdź zapasy kawy i mleka', priority: 'LOW',
-      status: 'DONE', assigneeId: employee.id, creatorId: manager.id,
-      completedAt: new Date()
-    }
+    where: { id: 'task-3' }, update: {},
+    create: { id: 'task-3', organizationId: org.id, title: 'Sprawdź zapasy kawy i mleka', priority: 'LOW', status: 'DONE', assigneeId: employee.id, creatorId: lead.id, completedAt: new Date() },
   })
 
-  // Notifications
+  // Powiadomienia
   await prisma.notification.createMany({
     skipDuplicates: true,
     data: [
-      { id: 'notif-1', userId: employee.id, title: 'Nowy grafik na lipiec', body: 'Manager opublikował grafik na lipiec. Sprawdź swoje zmiany.', type: 'SCHEDULE' },
-      { id: 'notif-2', userId: employee.id, title: 'Nowe zadanie: Remanent lodówek', body: 'Musisz wykonać remanent lodówek do godz. 14:00.', type: 'TASK' },
-      { id: 'notif-3', userId: employee.id, title: 'Zmiana za 30 minut', body: 'Twoja zmiana (8:00–16:00) zaczyna się niedługo.', type: 'INFO' },
-    ]
+      { id: 'notif-1', organizationId: org.id, userId: employee.id, title: 'Nowy grafik na lipiec', body: 'Opublikowano grafik na lipiec. Sprawdź swoje zmiany.', type: 'SCHEDULE' },
+      { id: 'notif-2', organizationId: org.id, userId: employee.id, title: 'Nowe zadanie: Remanent lodówek', body: 'Musisz wykonać remanent lodówek do godz. 14:00.', type: 'TASK' },
+    ],
   })
 
-  // Products
+  // Produkty
   await prisma.product.createMany({
     skipDuplicates: true,
     data: [
-      { id: 'prod-1', name: 'Croissant maślany', category: 'Wypieki', costPerUnit: 6 },
-      { id: 'prod-2', name: 'Pain au chocolat', category: 'Wypieki', costPerUnit: 7 },
-      { id: 'prod-3', name: 'Sernik nowojorski', category: 'Ciasta', unit: 'sztuka', costPerUnit: 50 },
-      { id: 'prod-4', name: 'Brownie czekoladowe', category: 'Ciasta', costPerUnit: 7 },
-      { id: 'prod-5', name: 'Bułka razowa', category: 'Pieczywo', costPerUnit: 3 },
-      { id: 'prod-6', name: 'Ciasto marchewkowe', category: 'Ciasta', unit: 'sztuka', costPerUnit: 45 },
-    ]
+      { id: 'prod-1', organizationId: org.id, name: 'Croissant maślany', category: 'Wypieki', costPerUnit: 6 },
+      { id: 'prod-2', organizationId: org.id, name: 'Pain au chocolat', category: 'Wypieki', costPerUnit: 7 },
+      { id: 'prod-3', organizationId: org.id, name: 'Sernik nowojorski', category: 'Ciasta', unit: 'sztuka', costPerUnit: 50 },
+      { id: 'prod-4', organizationId: org.id, name: 'Brownie czekoladowe', category: 'Ciasta', costPerUnit: 7 },
+      { id: 'prod-5', organizationId: org.id, name: 'Bułka razowa', category: 'Pieczywo', costPerUnit: 3 },
+    ],
   })
 
-  // Waste reports
+  // Straty (koszt spójny z cennikiem)
   await prisma.wasteReport.createMany({
     skipDuplicates: true,
     data: [
-      { id: 'waste-1', userId: employee.id, product: 'Croissant maślany', quantity: 2, unit: 'szt', reason: 'Przekroczony termin ważności', costPerUnit: 6, totalCost: 12 },
-      { id: 'waste-2', userId: employee.id, product: 'Pain au chocolat', quantity: 1, unit: 'szt', reason: 'Wada produktu', costPerUnit: 8, totalCost: 8 },
-    ]
+      { id: 'waste-1', organizationId: org.id, userId: employee.id, product: 'Croissant maślany', quantity: 2, unit: 'szt', reason: 'Przekroczony termin ważności', costPerUnit: 6, totalCost: 12 },
+      { id: 'waste-2', organizationId: org.id, userId: employee.id, product: 'Pain au chocolat', quantity: 1, unit: 'szt', reason: 'Wada produktu', costPerUnit: 7, totalCost: 7 },
+    ],
   })
 
-  // Vacation
+  // Urlop
   await prisma.vacation.upsert({
-    where: { id: 'vac-1' },
-    update: {},
-    create: {
-      id: 'vac-1', userId: employee.id, type: 'ANNUAL',
-      startDate: new Date('2026-06-20'), endDate: new Date('2026-06-25'),
-      days: 6, status: 'PENDING', reason: 'Wyjazd rodzinny'
-    }
+    where: { id: 'vac-1' }, update: {},
+    create: { id: 'vac-1', organizationId: org.id, userId: employee.id, type: 'ANNUAL', startDate: new Date('2026-07-20'), endDate: new Date('2026-07-25'), days: 6, status: 'PENDING', reason: 'Wyjazd rodzinny' },
   })
 
-  // Messages
+  // Wiadomości
   await prisma.message.createMany({
     skipDuplicates: true,
     data: [
-      { id: 'msg-1', senderId: manager.id, recipientId: employee.id, content: 'Dzień dobry Anno! Sprawdź proszę temperatury w lodówkach dziś rano.' },
-      { id: 'msg-2', senderId: employee.id, recipientId: manager.id, content: 'Dzień dobry! Oczywiście, sprawdzę i odpisuję.' },
-      { id: 'msg-3', senderId: manager.id, recipientId: employee.id, content: 'Świetnie, dziękuję. I pamiętaj o remanencie dziś przed 14:00 😊' },
-      { id: 'msg-4', senderId: employee.id, recipientId: manager.id, content: 'Temperatura lodówki głównej 3.8°C — wszystko OK!' },
-    ]
+      { id: 'msg-1', organizationId: org.id, senderId: lead.id, recipientId: employee.id, content: 'Dzień dobry Anno! Sprawdź proszę temperatury w lodówkach dziś rano.' },
+      { id: 'msg-2', organizationId: org.id, senderId: employee.id, recipientId: lead.id, content: 'Dzień dobry! Oczywiście, sprawdzę i odpisuję.' },
+    ],
   })
 
   console.log('✅ Seed complete!')
   console.log('')
   console.log('🔑 Login credentials:')
-  console.log('  Owner:   owner@restaurantos.pl   / owner123')
-  console.log('  Manager: manager@restaurantos.pl / manager123')
-  console.log('  Employee: anna@restaurantos.pl   / anna123')
+  console.log('  Owner:    owner@workos.pl / owner123')
+  console.log('  Lead:     lead@workos.pl  / lead123  (EMPLOYEE z uprawnieniami kierownika)')
+  console.log('  Employee: anna@workos.pl  / anna123')
 }
 
-main().catch(console.error).finally(() => prisma.$disconnect())
+main().catch((e) => { console.error(e); process.exit(1) }).finally(() => prisma.$disconnect())

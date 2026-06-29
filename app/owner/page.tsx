@@ -59,7 +59,7 @@ export default function ManagerDashboard() {
             <div className="mb-3">
               <div className="text-xs text-[#6B7A8D] mb-2">Urlopy ({pendingVacs.length})</div>
               {pendingVacs.slice(0,3).map((v:any) => (
-                <Link key={v.id} href="/manager/vacations" className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-all">
+                <Link key={v.id} href="/owner/vacations" className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-all">
                   <span className="text-sm text-[#E8ECF0]">{v.user?.name}</span>
                   <div className="flex items-center gap-2"><Badge variant="orange" className="text-[10px]">{v.days} dni</Badge><ChevronRight size={12} className="text-[#6B7A8D]" /></div>
                 </Link>
@@ -70,7 +70,7 @@ export default function ManagerDashboard() {
             <div>
               <div className="text-xs text-[#6B7A8D] mb-2">Otwarte awarie ({openIncidents.length})</div>
               {openIncidents.slice(0,3).map((inc:any) => (
-                <Link key={inc.id} href="/manager/incidents" className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-all">
+                <Link key={inc.id} href="/owner/incidents" className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-all">
                   <span className="text-sm text-[#E8ECF0]">{inc.device}</span>
                   <div className="flex items-center gap-2"><Badge variant="red" className="text-[10px]">Otwarte</Badge><ChevronRight size={12} className="text-[#6B7A8D]" /></div>
                 </Link>

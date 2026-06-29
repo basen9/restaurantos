@@ -1,19 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { handle, requireAuth, parseBody, orgScope, ApiError } from '@/lib/api'
+import { checklistRunSchema } from '@/lib/validation'
 import { prisma } from '@/lib/prisma'
 
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { templateId, completions } = await req.json()
-  const userId = (session.user as any).id
+export const POST = handle(async (req) => {
+  const user = await requireAuth()
+  const { templateId, completions } = parseBody(checklistRunSchema, await req.json())
+
+  // Szablon musi należeć do tej samej organizacji.
+  const template = await prisma.checklistTemplate.findFirst({
+    where: { id: templateId, ...orgScope(user) },
+    include: { items: { select: { id: true } } },
+  })
+  if (!template) throw new ApiError(404, 'Checklist template not found')
+
+  const validItemIds = new Set(template.items.map((i) => i.id))
+  const safeCompletions = completions.filter((c) => validItemIds.has(c.itemId))
+
   const run = await prisma.checklistRun.create({
     data: {
-      templateId, userId, status: 'SUBMITTED', completedAt: new Date(),
-      completions: { create: completions.map((c: any) => ({ itemId: c.itemId, done: c.done, doneAt: c.done ? new Date() : null })) }
+      organizationId: user.organizationId,
+      templateId,
+      userId: user.id,
+      status: 'SUBMITTED',
+      completedAt: new Date(),
+      completions: {
+        create: safeCompletions.map((c) => ({ itemId: c.itemId, done: c.done, doneAt: c.done ? new Date() : null })),
+      },
     },
-    include: { completions: true }
+    include: { completions: true },
   })
   return NextResponse.json(run, { status: 201 })
-}
+})

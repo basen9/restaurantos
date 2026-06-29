@@ -1,25 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { handle, requireAuth, parseBody, orgScope } from '@/lib/api'
+import { hasPermission, PERMISSIONS } from '@/lib/permissions'
+import { recipientsWithPermission } from '@/lib/notify'
+import { incidentSchema } from '@/lib/validation'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const userId = (session.user as any).id
-  const role = (session.user as any).role
-  const where = role === 'EMPLOYEE' ? { userId } : {}
-  const incidents = await prisma.incident.findMany({ where, include: { user: { select: { name: true } } }, orderBy: { createdAt: 'desc' } })
+export const GET = handle(async () => {
+  const user = await requireAuth()
+  const canSeeAll = hasPermission(user, PERMISSIONS.MANAGE_INCIDENTS)
+  const incidents = await prisma.incident.findMany({
+    where: { ...orgScope(user), ...(canSeeAll ? {} : { userId: user.id }) },
+    include: { user: { select: { name: true } } },
+    orderBy: { createdAt: 'desc' },
+  })
   return NextResponse.json(incidents)
-}
+})
 
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const body = await req.json()
-  const incident = await prisma.incident.create({ data: { ...body, userId: (session.user as any).id } })
-  const managers = await prisma.user.findMany({ where: { role: { in: ['MANAGER', 'OWNER'] } } })
-  const user = await prisma.user.findUnique({ where: { id: (session.user as any).id } })
-  await prisma.notification.createMany({ data: managers.map(m => ({ userId: m.id, title: `⚠️ Nowa awaria: ${body.device}`, body: `${user?.name} zgłosił(a) awarię: ${body.description.slice(0,80)}`, type: 'WARNING' })) })
+export const POST = handle(async (req) => {
+  const user = await requireAuth()
+  const data = parseBody(incidentSchema, await req.json())
+
+  const incident = await prisma.incident.create({
+    data: { ...data, organizationId: user.organizationId, userId: user.id },
+  })
+
+  const recipients = await recipientsWithPermission(user.organizationId, PERMISSIONS.MANAGE_INCIDENTS)
+  if (recipients.length) {
+    await prisma.notification.createMany({
+      data: recipients.map((r) => ({
+        organizationId: user.organizationId,
+        userId: r.id,
+        title: `⚠️ Nowa awaria: ${data.device}`,
+        body: `${user.name} zgłosił(a) awarię: ${data.description.slice(0, 80)}`,
+        type: 'WARNING' as const,
+      })),
+    })
+  }
   return NextResponse.json(incident, { status: 201 })
-}
+})

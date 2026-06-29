@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { handle, requireAuth, orgScope } from '@/lib/api'
 import { prisma } from '@/lib/prisma'
 
-export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const templates = await prisma.checklistTemplate.findMany({ where: { isActive: true }, include: { items: { orderBy: { order: 'asc' } } } })
+export const GET = handle(async () => {
+  const user = await requireAuth()
+  const templates = await prisma.checklistTemplate.findMany({
+    where: { ...orgScope(user), isActive: true },
+    include: { items: { orderBy: { order: 'asc' } } },
+  })
   return NextResponse.json(templates)
-}
+})

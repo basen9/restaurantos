@@ -1,25 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { handle, requireAuth, parseBody, orgScope } from '@/lib/api'
+import { productionBatchSchema } from '@/lib/validation'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export const GET = handle(async (req) => {
+  const user = await requireAuth()
   const { searchParams } = new URL(req.url)
-  const days = parseInt(searchParams.get('days') || '7')
+  const days = Math.min(Math.max(parseInt(searchParams.get('days') || '7', 10) || 7, 1), 365)
   const from = new Date(); from.setDate(from.getDate() - days)
-  const items = await prisma.production.findMany({ where: { date: { gte: from } }, include: { user: { select: { name: true } } }, orderBy: { date: 'desc' } })
-  return NextResponse.json(items)
-}
 
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { items } = await req.json()
-  const userId = (session.user as any).id
-  const created = await prisma.$transaction(items.map((item: any) =>
-    prisma.production.create({ data: { ...item, userId } })
-  ))
+  const items = await prisma.production.findMany({
+    where: { ...orgScope(user), date: { gte: from } },
+    include: { user: { select: { name: true } } },
+    orderBy: { date: 'desc' },
+  })
+  return NextResponse.json(items)
+})
+
+export const POST = handle(async (req) => {
+  const user = await requireAuth()
+  const { items } = parseBody(productionBatchSchema, await req.json())
+
+  const created = await prisma.$transaction(
+    items.map((item) =>
+      prisma.production.create({
+        data: {
+          organizationId: user.organizationId,
+          userId: user.id,
+          product: item.product,
+          quantity: item.quantity,
+          unit: item.unit,
+          notes: item.notes,
+        },
+      }),
+    ),
+  )
   return NextResponse.json(created, { status: 201 })
-}
+})

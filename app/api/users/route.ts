@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { handle, requirePermission, orgScope } from '@/lib/api'
+import { PERMISSIONS } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 
-export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export const GET = handle(async () => {
+  const user = await requirePermission(PERMISSIONS.VIEW_USERS)
   const users = await prisma.user.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true, email: true, role: true, position: true, locationId: true }
+    where: { ...orgScope(user), isActive: true },
+    select: { id: true, name: true, email: true, role: true, position: true, locationId: true },
+    orderBy: { name: 'asc' },
   })
   return NextResponse.json(users)
-}
+})
