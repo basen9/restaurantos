@@ -23,6 +23,12 @@ export const aiSchema = z.object({
     .optional(),
 })
 
+export const cooSchema = z.object({
+  mode: z.enum(['chat', 'review']).default('chat'),
+  message: z.string().max(4000).optional(),
+  history: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(8000) })).max(20).optional(),
+})
+
 export const checklistRunSchema = z.object({
   templateId: z.string().min(1),
   completions: z

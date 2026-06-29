@@ -38,6 +38,7 @@ const employeeNav = [
 const ownerNav = [
   { section: 'Centrum dowodzenia', items: [
     { href: '/owner', label: 'Dashboard CEO', icon: LayoutDashboard },
+    { href: '/owner/coo', label: 'AI COO', icon: Bot },
     { href: '/owner/analytics', label: 'Analityka', icon: BarChart3 },
   ]},
   { section: 'Zespół', items: [
