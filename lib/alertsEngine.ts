@@ -61,11 +61,11 @@ export async function runAlerts(user: Pick<AuthUser, 'id' | 'organizationId'>) {
   const fresh = seeds.filter((s) => !seen.has(s.dedupeKey))
 
   let created = 0
-  for (const s of fresh) {
-    await prisma.alert.create({
-      data: { organizationId: user.organizationId, dedupeKey: s.dedupeKey, type: s.type, severity: s.severity, title: s.title, detail: s.detail, actionHref: s.actionHref },
+  if (fresh.length) {
+    const res = await prisma.alert.createMany({
+      data: fresh.map((s) => ({ organizationId: user.organizationId, dedupeKey: s.dedupeKey, type: s.type, severity: s.severity, title: s.title, detail: s.detail, actionHref: s.actionHref })),
     })
-    created++
+    created = res.count
   }
 
   // Powiadom właścicieli o nowych alertach.

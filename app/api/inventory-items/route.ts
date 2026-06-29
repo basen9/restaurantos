@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { handle, requireAuth, requirePermission, parseBody, orgScope } from '@/lib/api'
+import { handle, requireAuth, requirePermission, parseBody, orgScope, ApiError } from '@/lib/api'
 import { PERMISSIONS } from '@/lib/permissions'
 import { inventoryItemSchema } from '@/lib/validation'
 import { prisma } from '@/lib/prisma'
@@ -20,6 +20,12 @@ export const GET = handle(async () => {
 export const POST = handle(async (req) => {
   const user = await requirePermission(PERMISSIONS.MANAGE_INVENTORY)
   const data = parseBody(inventoryItemSchema, await req.json())
+
+  // Walidacja właściciela dostawcy (izolacja tenanta).
+  if (data.supplierId) {
+    const sup = await prisma.supplier.findFirst({ where: { id: data.supplierId, ...orgScope(user) }, select: { id: true } })
+    if (!sup) throw new ApiError(400, 'Nieprawidłowy dostawca')
+  }
 
   const item = await prisma.inventoryItem.create({
     data: {

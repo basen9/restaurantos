@@ -14,12 +14,15 @@ export const GET = handle(async (req) => {
     ? { ...scope, OR: [{ senderId: user.id, recipientId: withId }, { senderId: withId, recipientId: user.id }] }
     : { ...scope, OR: [{ senderId: user.id }, { recipientId: user.id }] }
 
-  const messages = await prisma.message.findMany({
+  // Pobieramy najnowsze 200 (desc + take), zwracamy w kolejności rosnącej dla UI.
+  // Bez limitu długie wątki rosłyby bez ograniczeń przy każdym odświeżeniu.
+  const recent = await prisma.message.findMany({
     where,
     include: { sender: { select: { id: true, name: true } }, recipient: { select: { id: true, name: true } } },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
   })
-  return NextResponse.json(messages)
+  return NextResponse.json(recent.reverse())
 })
 
 export const POST = handle(async (req) => {

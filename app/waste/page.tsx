@@ -17,7 +17,7 @@ export default function WastePage() {
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => fetch('/api/products').then(r => r.json()) })
 
   const addWaste = useMutation({
-    mutationFn: (data: any) => fetch('/api/waste', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) }),
+    mutationFn: (data: any) => fetch('/api/waste', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error('Nie udało się zapisać straty'); return r.json() }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['waste'] }); toast.success('Strata zapisana') }
   })
 
@@ -128,9 +128,9 @@ export default function WastePage() {
               </select></div>
             <div><label className="block text-xs font-semibold text-[#6B7A8D] uppercase tracking-wider mb-1.5">Uwagi</label>
               <input className="input" placeholder="Opcjonalnie..." value={form.notes} onChange={e => setForm(p=>({...p, notes:e.target.value}))} /></div>
-            <button className="btn btn-gold w-full justify-center" disabled={!form.product}
+            <button className="btn btn-gold w-full justify-center" disabled={!form.product || addWaste.isPending}
               onClick={() => addWaste.mutate({...form, costPerUnit: 0, totalCost: 0})}>
-              Zapisz stratę
+              {addWaste.isPending ? 'Zapisywanie…' : 'Zapisz stratę'}
             </button>
           </div>
         </div>

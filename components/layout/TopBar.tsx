@@ -38,7 +38,7 @@ export function TopBar({ notifCount = 0, shiftActive = false, shiftElapsed = '',
 
       {/* Right */}
       <div className="flex items-center gap-3">
-        <Link href="/notifications" className="relative p-2 rounded-lg text-[#6B7A8D] hover:text-[#E8ECF0] hover:bg-white/5 transition-all">
+        <Link href="/notifications" aria-label="Powiadomienia" className="relative p-2 rounded-lg text-[#6B7A8D] hover:text-[#E8ECF0] hover:bg-white/5 transition-all">
           <Bell size={17} />
           {notifCount > 0 && (
             <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{notifCount > 9 ? '9+' : notifCount}</span>

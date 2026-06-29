@@ -2,6 +2,17 @@ import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
+import { rateLimit } from './ratelimit'
+
+// Fail-fast: na produkcji odrzucamy brak / placeholder / zbyt krótki sekret JWT.
+// Słaby sekret = możliwość podrobienia sesji. Pomijamy fazę builda (next build ustawia
+// NODE_ENV=production, ale realny sekret produkcyjny bywa wstrzykiwany dopiero przy starcie).
+const secret = process.env.NEXTAUTH_SECRET
+if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
+  if (!secret || secret.length < 32 || /change|example|placeholder|your-/i.test(secret)) {
+    throw new Error('NEXTAUTH_SECRET jest nieustawiony, zbyt krótki lub to wartość przykładowa. Ustaw silny, losowy sekret (>=32 znaki).')
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -13,6 +24,9 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
+        // Throttling logowania (per e-mail) — ogranicza brute-force / credential stuffing.
+        // Najlepszy efekt po przeniesieniu do Redis (multi-instancja); in-memory = per-proces.
+        if (!rateLimit(`login:${credentials.email.toLowerCase()}`, 10, 15 * 60 * 1000).ok) return null
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
           include: { location: true, organization: true },

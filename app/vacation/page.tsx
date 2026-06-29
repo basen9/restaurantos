@@ -21,8 +21,8 @@ export default function VacationPage() {
   const { data: vacations = [], isLoading } = useQuery({ queryKey: ['vacations'], queryFn: () => fetch('/api/vacations').then(r => r.json()) })
 
   const addVacation = useMutation({
-    mutationFn: (data: any) => fetch('/api/vacations', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vacations'] }); toast.success('Wniosek wysłany do managera'); setShowAdd(false) }
+    mutationFn: (data: any) => fetch('/api/vacations', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error('Nie udało się wysłać wniosku'); return r.json() }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vacations'] }); toast.success('Wniosek wysłany do akceptacji'); setShowAdd(false) }
   })
 
   const calcDays = () => {
@@ -33,6 +33,19 @@ export default function VacationPage() {
 
   if (isLoading) return <PageLoader />
 
+  // Realne saldo urlopowe (spójne z dashboardem): kwota roczna 26 dni urlopu wypoczynkowego.
+  const ANNUAL_QUOTA = 26
+  const list = Array.isArray(vacations) ? vacations : []
+  const thisYear = new Date().getFullYear()
+  const annualUsed = list
+    .filter((v: any) => v.type === 'ANNUAL' && v.status === 'APPROVED' && new Date(v.startDate).getFullYear() === thisYear)
+    .reduce((s: number, v: any) => s + (v.days || 0), 0)
+  const annualLeft = Math.max(0, ANNUAL_QUOTA - annualUsed)
+  const onDemandUsed = list
+    .filter((v: any) => v.type === 'ON_DEMAND' && v.status === 'APPROVED' && new Date(v.startDate).getFullYear() === thisYear)
+    .reduce((s: number, v: any) => s + (v.days || 0), 0)
+  const pendingCount = list.filter((v: any) => v.status === 'PENDING').length
+
   return (
     <div className="animate-fade-in max-w-3xl">
       <div className="flex items-center justify-between mb-6">
@@ -41,10 +54,10 @@ export default function VacationPage() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Urlop wypoczynkowy" value="18 dni" sub="pozostało" accent="gold" />
-        <StatCard label="Wykorzystano" value="8 dni" sub="w tym roku" />
-        <StatCard label="Na żądanie" value="4/4" sub="dni" />
-        <StatCard label="Oczekujące" value={Array.isArray(vacations) ? vacations.filter((v:any)=>v.status==='PENDING').length : 0} sub="wniosków" />
+        <StatCard label="Urlop wypoczynkowy" value={`${annualLeft} dni`} sub="pozostało" accent="gold" />
+        <StatCard label="Wykorzystano" value={`${annualUsed} dni`} sub="w tym roku" />
+        <StatCard label="Na żądanie" value={`${onDemandUsed}/4`} sub="dni" />
+        <StatCard label="Oczekujące" value={pendingCount} sub="wniosków" />
       </div>
 
       {!Array.isArray(vacations) || vacations.length === 0 ? (
@@ -84,8 +97,8 @@ export default function VacationPage() {
             <textarea className="input" rows={2} value={form.reason} onChange={e => setForm(p=>({...p, reason:e.target.value}))} /></div>
           <div className="flex gap-3">
             <button className="btn btn-ghost flex-1" onClick={() => setShowAdd(false)}>Anuluj</button>
-            <button className="btn btn-gold flex-1" disabled={!form.startDate || !form.endDate}
-              onClick={() => addVacation.mutate({...form, days: calcDays()})}>Złóż wniosek</button>
+            <button className="btn btn-gold flex-1" disabled={!form.startDate || !form.endDate || addVacation.isPending}
+              onClick={() => addVacation.mutate({...form, days: calcDays()})}>{addVacation.isPending ? 'Wysyłanie…' : 'Złóż wniosek'}</button>
           </div>
         </div>
       </Modal>

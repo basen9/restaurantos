@@ -34,7 +34,7 @@ export default function TasksPage() {
   })
 
   const createTask = useMutation({
-    mutationFn: (data: any) => fetch('/api/tasks', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) }),
+    mutationFn: (data: any) => fetch('/api/tasks', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error('Nie udało się dodać zadania'); return r.json() }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); toast.success('Zadanie dodane'); setShowAdd(false); setForm({ title:'', description:'', priority:'MEDIUM', dueTime:'', assigneeId:'' }) }
   })
 
@@ -93,7 +93,7 @@ export default function TasksPage() {
                   <button className="btn btn-success py-1.5 px-2.5 text-xs" onClick={() => updateTask.mutate({ id: task.id, data: { status: 'DONE' } })}><Check size={12}/> Gotowe</button>
                 )}
                 {canManage && (
-                  <button className="btn btn-danger py-1.5 px-2 text-xs" onClick={() => deleteTask.mutate(task.id)}><Trash2 size={12}/></button>
+                  <button className="btn btn-danger py-1.5 px-2 text-xs" aria-label="Usuń zadanie" onClick={() => deleteTask.mutate(task.id)}><Trash2 size={12}/></button>
                 )}
               </div>
             </div>
@@ -123,7 +123,7 @@ export default function TasksPage() {
             </select></div>
           <div className="flex gap-3 pt-2">
             <button className="btn btn-ghost flex-1" onClick={() => setShowAdd(false)}>Anuluj</button>
-            <button className="btn btn-gold flex-1" onClick={() => createTask.mutate(form)} disabled={!form.title || !form.assigneeId}>Dodaj zadanie</button>
+            <button className="btn btn-gold flex-1" onClick={() => createTask.mutate(form)} disabled={!form.title || !form.assigneeId || createTask.isPending}>{createTask.isPending ? 'Dodawanie…' : 'Dodaj zadanie'}</button>
           </div>
         </div>
       </Modal>

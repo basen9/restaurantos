@@ -13,13 +13,16 @@ export const GET = handle(async (req) => {
   const to = searchParams.get('to')
 
   const where: any = { ...orgScope(user), ...(canSeeAll ? {} : { userId: user.id }) }
-  if (from) where.date = { gte: new Date(from) }
-  if (to) where.date = { ...where.date, lte: new Date(to) }
+  // Domyślne okno 90 dni — bez tego lista rośnie bez ograniczeń (zwraca całą historię).
+  const defaultFrom = new Date(); defaultFrom.setDate(defaultFrom.getDate() - 90)
+  where.date = { gte: from ? new Date(from) : defaultFrom }
+  if (to) where.date.lte = new Date(to)
 
   const reports = await prisma.wasteReport.findMany({
     where,
     include: { user: { select: { name: true } } },
     orderBy: { createdAt: 'desc' },
+    take: 500,
   })
   return NextResponse.json(reports)
 })
