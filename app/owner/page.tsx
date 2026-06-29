@@ -155,9 +155,10 @@ export default function OwnerDashboard() {
                       <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${(l.score / maxLocScore) * 100}%`, background: i === 0 ? '#E8B923' : '#6B7A8D' }} />
                       </div>
-                      <div className="flex items-center gap-3 mt-1 text-[10px] text-[#6B7A8D]">
-                        <span>👥 {l.activeNow}/{l.staff} na zmianie</span>
-                        <span>🗑️ {l.wasteMonth.toFixed(0)} zł</span>
+                      <div className="flex items-center gap-3 mt-1 text-[10px] text-[#6B7A8D] flex-wrap">
+                        <span>💰 {l.revenueToday} zł dziś{l.marginPct != null ? ` · marża ${l.marginPct}%` : ''}</span>
+                        <span>👥 {l.activeNow}/{l.headcount}</span>
+                        <span>🗑️ {l.wasteMonth} zł</span>
                         {l.openIncidents > 0 && <span className="text-red-400">⚠️ {l.openIncidents}</span>}
                       </div>
                     </div>

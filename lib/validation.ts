@@ -161,6 +161,21 @@ export const vacationDecisionSchema = z.object({
   reason: z.string().max(500).optional(),
 })
 
+export const locationSchema = z.object({
+  name: z.string().min(1).max(160),
+  address: z.string().max(200).optional(),
+  city: z.string().max(120).optional(),
+})
+
+export const locationUpdateSchema = z
+  .object({
+    name: z.string().min(1).max(160).optional(),
+    address: z.string().max(200).optional(),
+    city: z.string().max(120).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict()
+
 export const supplierSchema = z.object({
   name: z.string().min(1).max(160),
   contact: z.string().max(160).optional(),

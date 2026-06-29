@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { handle, requirePermission, orgScope } from '@/lib/api'
 import { PERMISSIONS } from '@/lib/permissions'
 import { productCostMap, cogsFor, laborCost, foodCostVariance } from '@/lib/finance'
+import { getLocationsBreakdown } from '@/lib/locationAnalytics'
 import { prisma } from '@/lib/prisma'
 
 // Payload "centrum dowodzenia" — odpowiada na 5 pytań właściciela w 30 s:
@@ -48,18 +49,8 @@ export const GET = handle(async () => {
   const topProducts = topWaste.map((w) => ({ product: w.product, cost: w._sum.totalCost || 0 }))
   const openIncidents = incidentRows.length
 
-  // Agregacja per-lokal (w JS — łączymy straty/awarie przez właściciela rekordu).
-  const perLoc = new Map(locations.map((l) => [l.id, { id: l.id, name: l.name, wasteMonth: 0, openIncidents: 0, activeNow: 0, scheduledToday: 0, staff: 0 }]))
-  for (const r of wasteMonthRows) { const lid = userLoc.get(r.userId); const e = lid && perLoc.get(lid); if (e) e.wasteMonth += r.totalCost || 0 }
-  for (const r of incidentRows) { const lid = userLoc.get(r.userId); const e = lid && perLoc.get(lid); if (e) e.openIncidents += 1 }
-  for (const s of activeShifts) { const e = s.locationId && perLoc.get(s.locationId); if (e) e.activeNow += 1 }
-  for (const s of scheduledShifts) { const e = s.locationId && perLoc.get(s.locationId); if (e) e.scheduledToday += 1 }
-  for (const u of users) { const e = u.locationId && perLoc.get(u.locationId); if (e) e.staff += 1 }
-
-  // Ranking lokali: niższe straty i mniej awarii = wyżej. (Pełna rentowność = po integracji POS.)
-  const locationRanking = Array.from(perLoc.values())
-    .map((l) => ({ ...l, score: Math.round(Math.max(0, 100 - l.wasteMonth / 10 - l.openIncidents * 5)) }))
-    .sort((x, y) => y.score - x.score)
+  // Pełna analityka per-lokal (przychód, marża, koszt pracy, straty, awarie, obsada).
+  const locationRanking = await getLocationsBreakdown(user.organizationId)
 
   // Magazyn + food cost (pętla pieniędzy)
   const [stockItems, recipes] = await Promise.all([
