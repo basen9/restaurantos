@@ -132,6 +132,7 @@ model Organization {
   stockMovements     StockMovement[]
   sales              Sale[]
   posConnection      PosConnection?
+  cooReviews         CooReview[]
   auditLogs          AuditLog[]
 }
 
@@ -686,6 +687,20 @@ model SaleItem {
   quantity  Int     @default(1)
   unitPrice Float   @default(0)
   total     Float   @default(0)
+}
+
+// Trwałe przeglądy/analizy AI COO (historia decyzji i rekomendacji).
+model CooReview {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  kind      String   @default("REVIEW") // REVIEW | CHAT
+  content   String
+  source    String   @default("rules") // ai | rules
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, createdAt])
 }
 
 model AuditLog {

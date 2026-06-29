@@ -1,9 +1,9 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { useMutation } from '@tanstack/react-query'
-import { PageLoader } from '@/components/ui/LoadingSpinner'
-import { Sparkles, Send, FileText } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Modal } from '@/components/ui/Modal'
+import { Sparkles, Send, FileText, History } from 'lucide-react'
+import { cn, formatDate, formatTime } from '@/lib/utils'
 
 const SUGGESTIONS = [
   'Co wymaga mojej uwagi dziś?',
@@ -15,16 +15,20 @@ const SUGGESTIONS = [
 type Msg = { role: 'user' | 'assistant'; content: string }
 
 export default function CooPage() {
+  const qc = useQueryClient()
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
+  const [showHistory, setShowHistory] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
+
+  const { data: reviews = [] } = useQuery({ queryKey: ['coo-reviews'], queryFn: () => fetch('/api/coo').then(r => r.json()) })
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   const ask = useMutation({
     mutationFn: ({ mode, message, history }: any) =>
       fetch('/api/coo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, message, history }) }).then(r => r.json()),
-    onSuccess: (data) => setMessages(m => [...m, { role: 'assistant', content: data.reply }]),
+    onSuccess: (data) => { setMessages(m => [...m, { role: 'assistant', content: data.reply }]); qc.invalidateQueries({ queryKey: ['coo-reviews'] }) },
     onError: () => setMessages(m => [...m, { role: 'assistant', content: 'Przepraszam, spróbuj ponownie.' }]),
   })
 
@@ -43,7 +47,10 @@ export default function CooPage() {
           <h1 className="font-display text-2xl text-[#F5F0E8] flex items-center gap-2"><Sparkles size={18} className="text-yellow-400" /> AI COO</h1>
           <p className="text-sm text-[#6B7A8D] mt-0.5">Twój dyrektor operacyjny — zamienia dane w decyzje</p>
         </div>
-        <button className="btn btn-ghost" onClick={() => send('', 'review')} disabled={ask.isPending}><FileText size={14} /> Przegląd tygodnia</button>
+        <div className="flex gap-2">
+          <button className="btn btn-ghost" onClick={() => setShowHistory(true)}><History size={14} /> Historia</button>
+          <button className="btn btn-ghost" onClick={() => send('', 'review')} disabled={ask.isPending}><FileText size={14} /> Przegląd tygodnia</button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto card p-4 mb-3 space-y-3">
@@ -75,6 +82,24 @@ export default function CooPage() {
           onKeyDown={e => { if (e.key === 'Enter' && input.trim() && !ask.isPending) send(input.trim()) }} />
         <button className="btn btn-gold" disabled={!input.trim() || ask.isPending} onClick={() => send(input.trim())}><Send size={14} /></button>
       </div>
+
+      <Modal open={showHistory} onClose={() => setShowHistory(false)} title="Historia przeglądów AI COO" size="lg">
+        {(!Array.isArray(reviews) || reviews.length === 0) ? (
+          <div className="text-center py-8 text-sm text-[#6B7A8D]">Brak zapisanych przeglądów. Wygeneruj „Przegląd tygodnia".</div>
+        ) : (
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+            {reviews.map((r: any) => (
+              <div key={r.id} className="card-raised p-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs text-[#6B7A8D]">{formatDate(r.createdAt)} · {formatTime(r.createdAt)}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: r.source === 'ai' ? 'rgba(232,185,35,0.15)' : 'rgba(255,255,255,0.06)', color: r.source === 'ai' ? '#E8B923' : '#9AAAB8' }}>{r.source === 'ai' ? 'AI' : 'reguły'}</span>
+                </div>
+                <div className="text-xs text-[#E8ECF0] whitespace-pre-wrap">{r.content}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

@@ -80,5 +80,5 @@ Status: ✅ wdrożone · 🟦 zaplanowane · 💡 pomysł.
 - 🟠 **Warstwa zdarzeń + cron/kolejka** pod alerty i AI COO (przetwarzanie w tle). **Wdrożenie:** kolejka (np. pg-boss/Redis) + harmonogram.
 - 🟡 **Metryki materializowane** zamiast agregacji na żywo (`/api/analytics`). **Wdrożenie:** widoki/tabela `MetricDaily`, odświeżanie cron.
 - 🟡 **Rate-limiting i limity kosztów AI** per organizacja. **Wdrożenie:** licznik w Redis + budżet tokenów na tenant.
-- 🟡 **AI z tool-use + streaming** (Claude `claude-opus-4-8`/`claude-sonnet-4-6`) zamiast „ślepego" czatu. **Wdrożenie:** definicje narzędzi nad Prisma (read-only), SSE.
+- ✅ **AI z tool-use** (Claude `claude-opus-4-8`) wdrożone w AI COO Premium (6 narzędzi, agentowa pętla, degradacja regułowa, rate-limit, trwałe przeglądy). Pozostało: **streaming (SSE)** w czacie, **cron auto-przegląd** + powiadomienie, **budżet tokenów per org** (twardszy limit kosztów). Uzasadnienie: streaming poprawia UX długich odpowiedzi; cron buduje nawyk i retencję; budżet tokenów chroni marżę przy skali.
 - 🟢 **Testy** (unit dla domeny, e2e dla ścieżek krytycznych) — dziś brak.
