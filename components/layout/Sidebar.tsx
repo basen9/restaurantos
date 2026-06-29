@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Calendar, Clock, Umbrella, CheckSquare, ListTodo,
   Package, Trash2, AlertTriangle, Bell, MessageSquare, Bot, BarChart3,
-  Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine, MapPin
+  Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine, MapPin, BookOpen, CalendarCheck
 } from 'lucide-react'
 
 const employeeNav = [
@@ -14,11 +14,13 @@ const employeeNav = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/schedule', label: 'Mój grafik', icon: Calendar },
     { href: '/time', label: 'Czas pracy', icon: Clock },
+    { href: '/availability', label: 'Dostępność', icon: CalendarCheck },
     { href: '/vacation', label: 'Urlopy', icon: Umbrella },
   ]},
   { section: 'Praca', items: [
     { href: '/tasks', label: 'Zadania', icon: CheckSquare, badge: 'tasks' },
     { href: '/checklists', label: 'Checklisty', icon: ListTodo },
+    { href: '/sop', label: 'SOP / procedury', icon: BookOpen },
     { href: '/production', label: 'Produkcja', icon: Package },
     { href: '/inventory', label: 'Remanent', icon: Package },
     { href: '/waste', label: 'Zgłoś stratę', icon: Trash2 },
@@ -52,6 +54,7 @@ const ownerNav = [
     { href: '/owner/warehouse', label: 'Magazyn', icon: Warehouse },
     { href: '/owner/invoices', label: 'Faktury (OCR/KSeF)', icon: ScanLine },
     { href: '/owner/recipes', label: 'Receptury & food cost', icon: ChefHat },
+    { href: '/sop', label: 'SOP / procedury', icon: BookOpen },
     { href: '/owner/waste', label: 'Straty', icon: Trash2 },
     { href: '/owner/incidents', label: 'Awarie', icon: AlertTriangle },
   ]},

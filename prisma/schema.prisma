@@ -136,6 +136,7 @@ model Organization {
   invoices           Invoice[]
   ksefConnection     KsefConnection?
   alerts             Alert[]
+  sopDocuments       SopDocument[]
   auditLogs          AuditLog[]
 }
 
@@ -799,6 +800,22 @@ model Alert {
 
   @@index([organizationId, status, createdAt])
   @@index([organizationId, dedupeKey, status])
+}
+
+// SOP — procedury/standardy (właściciel tworzy, pracownik czyta).
+model SopDocument {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title     String
+  category  String   @default("Ogólne")
+  content   String   // treść (markdown/plain)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, isActive])
 }
 
 model AuditLog {
