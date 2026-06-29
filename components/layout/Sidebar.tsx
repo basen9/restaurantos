@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 import {
-  LayoutDashboard, Calendar, Clock, Umbrella, RefreshCw, CheckSquare, ListTodo,
+  LayoutDashboard, Calendar, Clock, Umbrella, CheckSquare, ListTodo,
   Package, Trash2, AlertTriangle, Bell, MessageSquare, Bot, BarChart3,
   Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine, MapPin
 } from 'lucide-react'
@@ -15,7 +15,6 @@ const employeeNav = [
     { href: '/schedule', label: 'Mój grafik', icon: Calendar },
     { href: '/time', label: 'Czas pracy', icon: Clock },
     { href: '/vacation', label: 'Urlopy', icon: Umbrella },
-    { href: '/swaps', label: 'Zamiana zmian', icon: RefreshCw },
   ]},
   { section: 'Praca', items: [
     { href: '/tasks', label: 'Zadania', icon: CheckSquare, badge: 'tasks' },

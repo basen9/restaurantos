@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from './auth'
 import { hasPermission, type Permission } from './permissions'
+import { rateLimit } from './ratelimit'
+import { logger } from './logger'
 import { z, type ZodTypeAny } from 'zod'
 
 export class ApiError extends Error {
@@ -59,6 +61,12 @@ export function orgScope(user: AuthUser) {
   return { organizationId: user.organizationId }
 }
 
+// Rate limiting kosztownych endpointów (AI, OCR, integracje). Rzuca 429.
+export function enforceRateLimit(key: string, max: number, windowMs: number) {
+  const r = rateLimit(key, max, windowMs)
+  if (!r.ok) throw new ApiError(429, `Limit zapytań wyczerpany. Spróbuj ponownie za ${Math.ceil(r.retryAfterMs / 1000)} s.`)
+}
+
 type Handler = (req: Request, ctx: any) => Promise<Response> | Response
 
 export function handle(fn: Handler): Handler {
@@ -69,7 +77,7 @@ export function handle(fn: Handler): Handler {
       if (e instanceof ApiError) {
         return NextResponse.json({ error: e.message }, { status: e.status })
       }
-      console.error('[API ERROR]', e)
+      logger.error('Unhandled API error', { error: e instanceof Error ? e.message : String(e), stack: e instanceof Error ? e.stack : undefined })
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
   }

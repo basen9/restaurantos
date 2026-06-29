@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { handle, requireAuth, requirePermission } from '@/lib/api'
+import { handle, requireAuth, requirePermission, enforceRateLimit } from '@/lib/api'
 import { PERMISSIONS } from '@/lib/permissions'
 import { getKsefProvider } from '@/lib/ksef'
 import { createInvoiceWithMatches } from '@/lib/invoiceService'
@@ -16,6 +16,7 @@ export const GET = handle(async () => {
 // Mock-sync: pobiera faktury z KSeF (provider mock) i tworzy je jako PENDING.
 export const POST = handle(async () => {
   const user = await requirePermission(PERMISSIONS.MANAGE_INVENTORY)
+  enforceRateLimit(`ksef:${user.organizationId}`, 10, 60 * 60 * 1000)
   const provider = getKsefProvider('mock')
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
   const invoices = await provider.fetchInvoices(since)

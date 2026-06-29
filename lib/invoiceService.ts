@@ -21,7 +21,7 @@ export async function createInvoiceWithMatches(
   const matched = matchInvoiceLines(input.items, items)
   const total = round2(matched.reduce((s, l) => s + l.quantity * l.unitPrice, 0))
 
-  return prisma.invoice.create({
+  const invoice = await prisma.invoice.create({
     data: {
       organizationId: user.organizationId,
       supplierId: input.supplierId || null,
@@ -37,6 +37,8 @@ export async function createInvoiceWithMatches(
     },
     include: { items: { include: { inventoryItem: { select: { id: true, name: true, unit: true } } } } },
   })
+  await audit(user, 'invoice.create', 'Invoice', invoice.id, { source: input.source, total, matched: matched.filter((m) => m.inventoryItemId).length })
+  return invoice
 }
 
 export async function confirmInvoice(user: Pick<AuthUser, 'id' | 'organizationId'>, invoiceId: string) {

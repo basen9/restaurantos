@@ -73,6 +73,13 @@ export const checklistRunSchema = z.object({
     .min(1),
 })
 
+export const incidentDecisionSchema = z
+  .object({
+    status: z.enum(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']),
+    notes: z.string().max(1000).optional(),
+  })
+  .strict()
+
 export const incidentSchema = z.object({
   category: z.string().min(1).max(100),
   device: z.string().min(1).max(120),

@@ -17,7 +17,9 @@ export default function LoginPage() {
     setLoading(false)
     if (res?.error) { toast.error('Nieprawidłowy email lub hasło'); return }
     toast.success('Zalogowano pomyślnie')
-    router.push('/dashboard')
+    // Routing po roli: root przekieruje OWNER → /owner, EMPLOYEE → /dashboard.
+    router.push('/')
+    router.refresh()
   }
 
   return (

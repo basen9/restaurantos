@@ -679,6 +679,7 @@ model Sale {
   items SaleItem[]
 
   @@index([organizationId, soldAt])
+  @@index([organizationId, locationId, soldAt])
   @@index([organizationId, externalId])
 }
 
