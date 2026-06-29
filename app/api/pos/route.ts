@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { handle, requireAuth, requirePermission, orgScope, ApiError } from '@/lib/api'
+import { handle, requireAuth, requirePermission, orgScope, ApiError, enforceRateLimit } from '@/lib/api'
 import { PERMISSIONS } from '@/lib/permissions'
 import { audit } from '@/lib/audit'
 import { prisma } from '@/lib/prisma'
@@ -15,6 +15,7 @@ export const GET = handle(async () => {
 // Architektura gotowa pod realnych providerów (toast/square/gopos) — wymienia się tylko generator.
 export const POST = handle(async (req) => {
   const user = await requirePermission(PERMISSIONS.VIEW_FINANCE)
+  enforceRateLimit(`pos:${user.organizationId}`, 10, 60 * 60 * 1000)
 
   const [products, locations] = await Promise.all([
     prisma.product.findMany({ where: { ...orgScope(user), isActive: true, price: { gt: 0 } }, select: { id: true, name: true, price: true } }),

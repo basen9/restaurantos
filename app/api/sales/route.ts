@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { handle, requireAuth, requirePermission, parseBody, orgScope } from '@/lib/api'
 import { PERMISSIONS } from '@/lib/permissions'
 import { saleSchema } from '@/lib/validation'
+import { audit } from '@/lib/audit'
 import { prisma } from '@/lib/prisma'
 
 export const GET = handle(async () => {
@@ -34,5 +35,6 @@ export const POST = handle(async (req) => {
     },
     include: { items: true },
   })
+  await audit(user, 'sale.create', 'Sale', sale.id, { total, source: 'MANUAL' })
   return NextResponse.json(sale, { status: 201 })
 })

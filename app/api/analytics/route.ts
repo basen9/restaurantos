@@ -21,13 +21,10 @@ export const GET = handle(async () => {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
   const [
-    locations, users,
     wasteMonthRows, wasteWeek, wasteToday, wasteYesterday, topWaste,
     incidentRows, pendingVacations, openTasks,
     totalEmployees, activeShifts, scheduledShifts,
   ] = await Promise.all([
-    prisma.location.findMany({ where: { ...org, isActive: true }, select: { id: true, name: true } }),
-    prisma.user.findMany({ where: org, select: { id: true, locationId: true } }),
     prisma.wasteReport.findMany({ where: { ...org, date: { gte: monthStart } }, select: { totalCost: true, userId: true } }),
     prisma.wasteReport.aggregate({ where: { ...org, date: { gte: weekAgo } }, _sum: { totalCost: true } }),
     prisma.wasteReport.aggregate({ where: { ...org, date: { gte: startToday } }, _sum: { totalCost: true } }),
@@ -41,7 +38,6 @@ export const GET = handle(async () => {
     prisma.shift.findMany({ where: { ...org, status: 'SCHEDULED', date: { gte: startToday, lte: endToday } }, select: { locationId: true } }),
   ])
 
-  const userLoc = new Map(users.map((u) => [u.id, u.locationId]))
   const wasteTodayCost = wasteToday._sum.totalCost || 0
   const wasteYesterdayCost = wasteYesterday._sum.totalCost || 0
   const wasteWeekCost = wasteWeek._sum.totalCost || 0

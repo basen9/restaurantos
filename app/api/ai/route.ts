@@ -1,10 +1,11 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { handle, requireAuth, parseBody } from '@/lib/api'
+import { handle, requireAuth, parseBody, enforceRateLimit } from '@/lib/api'
 import { aiSchema } from '@/lib/validation'
 
 export const POST = handle(async (req) => {
-  await requireAuth()
+  const user = await requireAuth()
+  enforceRateLimit(`ai:${user.organizationId}`, 30, 60 * 1000)
   const { message, history } = parseBody(aiSchema, await req.json())
 
   const apiKey = process.env.ANTHROPIC_API_KEY

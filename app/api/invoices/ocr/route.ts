@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { handle, requirePermission, parseBody, ApiError } from '@/lib/api'
+import { handle, requirePermission, parseBody, ApiError, enforceRateLimit } from '@/lib/api'
 import { PERMISSIONS } from '@/lib/permissions'
 import { invoiceOcrSchema } from '@/lib/validation'
 import { extractInvoice } from '@/lib/ocr'
@@ -8,6 +8,7 @@ import { createInvoiceWithMatches } from '@/lib/invoiceService'
 
 export const POST = handle(async (req) => {
   const user = await requirePermission(PERMISSIONS.MANAGE_INVENTORY)
+  enforceRateLimit(`ocr:${user.organizationId}`, 20, 60 * 60 * 1000)
   const { image, mediaType } = parseBody(invoiceOcrSchema, await req.json())
 
   const apiKey = process.env.ANTHROPIC_API_KEY
