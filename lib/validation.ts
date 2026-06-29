@@ -23,6 +23,26 @@ export const aiSchema = z.object({
     .optional(),
 })
 
+const invoiceLineSchema = z.object({
+  name: z.string().min(1).max(200),
+  quantity: z.number().positive(),
+  unit: z.string().min(1).max(20).default('szt'),
+  unitPrice: z.number().nonnegative(),
+})
+
+export const invoiceManualSchema = z.object({
+  number: z.string().max(80).optional(),
+  supplierName: z.string().max(160).optional(),
+  supplierId: z.string().optional(),
+  issueDate: z.coerce.date().optional(),
+  items: z.array(invoiceLineSchema).min(1).max(200),
+})
+
+export const invoiceOcrSchema = z.object({
+  image: z.string().min(10),
+  mediaType: z.enum(['image/jpeg', 'image/png', 'image/webp']).default('image/jpeg'),
+})
+
 export const saleSchema = z.object({
   soldAt: z.coerce.date().optional(),
   items: z
