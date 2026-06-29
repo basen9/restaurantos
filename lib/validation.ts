@@ -118,6 +118,49 @@ export const vacationDecisionSchema = z.object({
   reason: z.string().max(500).optional(),
 })
 
+export const supplierSchema = z.object({
+  name: z.string().min(1).max(160),
+  contact: z.string().max(160).optional(),
+  email: z.string().email().max(160).optional().or(z.literal('')),
+  phone: z.string().max(40).optional(),
+  notes: z.string().max(500).optional(),
+})
+
+export const inventoryItemSchema = z.object({
+  name: z.string().min(1).max(160),
+  category: z.string().max(80).default('Inne'),
+  unit: z.string().min(1).max(20).default('kg'),
+  stock: z.number().nonnegative().default(0),
+  minStock: z.number().nonnegative().default(0),
+  costPerUnit: z.number().nonnegative().default(0),
+  supplierId: z.string().optional().or(z.literal('')),
+})
+
+export const inventoryItemUpdateSchema = z
+  .object({
+    name: z.string().min(1).max(160).optional(),
+    category: z.string().max(80).optional(),
+    unit: z.string().min(1).max(20).optional(),
+    minStock: z.number().nonnegative().optional(),
+    costPerUnit: z.number().nonnegative().optional(),
+    supplierId: z.string().optional().or(z.literal('')),
+    // ruch magazynowy:
+    restock: z.number().optional(), // +przyjęcie / -korekta
+    restockType: z.enum(['PURCHASE', 'ADJUSTMENT', 'WASTE', 'USAGE']).optional(),
+    reason: z.string().max(300).optional(),
+  })
+  .strict()
+
+export const recipeSchema = z.object({
+  productId: z.string().min(1),
+  yield: z.number().int().positive().default(1),
+  notes: z.string().max(500).optional(),
+  items: z
+    .array(z.object({ inventoryItemId: z.string().min(1), quantity: z.number().positive(), unit: z.string().min(1).max(20).default('kg') }))
+    .min(1)
+    .max(100),
+})
+
 export const wasteSchema = z.object({
   product: z.string().min(1).max(160),
   quantity: z.number().positive(),

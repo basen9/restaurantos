@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from './auth'
 import { hasPermission, type Permission } from './permissions'
-import type { ZodSchema } from 'zod'
+import { z, type ZodTypeAny } from 'zod'
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -44,7 +44,8 @@ export async function requirePermission(permission: Permission): Promise<AuthUse
 }
 
 // Walidacja + whitelista pól (koniec mass-assignment przez ...body).
-export function parseBody<T>(schema: ZodSchema<T>, data: unknown): T {
+// Zwraca typ WYJŚCIOWY schematu (z zastosowanymi .default()).
+export function parseBody<S extends ZodTypeAny>(schema: S, data: unknown): z.infer<S> {
   const result = schema.safeParse(data)
   if (!result.success) {
     const msg = result.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`).join('; ')

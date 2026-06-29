@@ -126,6 +126,10 @@ model Organization {
   inventories        Inventory[]
   productions        Production[]
   products           Product[]
+  suppliers          Supplier[]
+  inventoryItems     InventoryItem[]
+  recipes            Recipe[]
+  stockMovements     StockMovement[]
   auditLogs          AuditLog[]
 }
 
@@ -169,6 +173,7 @@ model User {
   productions    Production[]
   sentMessages   Message[]      @relation("MessageSender")
   recvMessages   Message[]      @relation("MessageRecipient")
+  stockMovements StockMovement[]
   auditLogs      AuditLog[]
 
   @@index([organizationId])
@@ -514,11 +519,115 @@ model Product {
   name        String
   category    String
   unit        String   @default("szt")
-  costPerUnit Float    @default(0)
+  costPerUnit Float    @default(0) // koszt jednostkowy (np. dla strat)
+  price       Float    @default(0) // cena sprzedaży (do food cost %)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
+  recipe Recipe?
+
   @@index([organizationId])
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// MAGAZYN · DOSTAWCY · RECEPTURY · FOOD COST (pętla pieniędzy)
+// ──────────────────────────────────────────────────────────────────────────
+
+enum MovementType {
+  PURCHASE    // przyjęcie (zakup)
+  USAGE       // zużycie (produkcja/sprzedaż)
+  WASTE       // strata
+  ADJUSTMENT  // korekta (remanent)
+  PRODUCTION  // produkcja wyrobu
+}
+
+model Supplier {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name      String
+  contact   String?
+  email     String?
+  phone     String?
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  items InventoryItem[]
+
+  @@index([organizationId])
+}
+
+model InventoryItem {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierId     String?
+  supplier       Supplier? @relation(fields: [supplierId], references: [id])
+
+  name        String
+  category    String   @default("Inne")
+  unit        String   @default("kg")
+  stock       Float    @default(0)   // bieżący stan
+  minStock    Float    @default(0)   // poziom minimalny (alert/zamówienie)
+  costPerUnit Float    @default(0)   // ostatnia cena zakupu
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  recipeItems RecipeItem[]
+  movements   StockMovement[]
+
+  @@index([organizationId])
+  @@index([organizationId, category])
+}
+
+model Recipe {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  productId      String   @unique
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  yield     Int      @default(1) // ile sztuk wyrobu z receptury
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items RecipeItem[]
+
+  @@index([organizationId])
+}
+
+model RecipeItem {
+  id              String   @id @default(cuid())
+  recipeId        String
+  recipe          Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  quantity Float  // ilość składnika na cały yield
+  unit     String @default("kg")
+}
+
+model StockMovement {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id])
+
+  type      MovementType
+  quantity  Float    // +przyjęcie / -zużycie
+  unitCost  Float?   // koszt jednostkowy przy przyjęciu
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, inventoryItemId])
+  @@index([organizationId, createdAt])
 }
 
 // ──────────────────────────────────────────────────────────────────────────

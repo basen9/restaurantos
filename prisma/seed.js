@@ -150,17 +150,54 @@ async function main() {
     ],
   })
 
-  // Produkty
+  // Produkty (z ceną sprzedaży do food cost)
   await prisma.product.createMany({
     skipDuplicates: true,
     data: [
-      { id: 'prod-1', organizationId: org.id, name: 'Croissant maślany', category: 'Wypieki', costPerUnit: 6 },
-      { id: 'prod-2', organizationId: org.id, name: 'Pain au chocolat', category: 'Wypieki', costPerUnit: 7 },
-      { id: 'prod-3', organizationId: org.id, name: 'Sernik nowojorski', category: 'Ciasta', unit: 'sztuka', costPerUnit: 50 },
-      { id: 'prod-4', organizationId: org.id, name: 'Brownie czekoladowe', category: 'Ciasta', costPerUnit: 7 },
-      { id: 'prod-5', organizationId: org.id, name: 'Bułka razowa', category: 'Pieczywo', costPerUnit: 3 },
+      { id: 'prod-1', organizationId: org.id, name: 'Croissant maślany', category: 'Wypieki', costPerUnit: 6, price: 12 },
+      { id: 'prod-2', organizationId: org.id, name: 'Pain au chocolat', category: 'Wypieki', costPerUnit: 7, price: 14 },
+      { id: 'prod-3', organizationId: org.id, name: 'Sernik nowojorski', category: 'Ciasta', unit: 'sztuka', costPerUnit: 50, price: 120 },
+      { id: 'prod-4', organizationId: org.id, name: 'Brownie czekoladowe', category: 'Ciasta', costPerUnit: 7, price: 15 },
+      { id: 'prod-5', organizationId: org.id, name: 'Bułka razowa', category: 'Pieczywo', costPerUnit: 3, price: 6 },
     ],
   })
+
+  // Wymuś ceny (createMany skipDuplicates nie aktualizuje istniejących wierszy)
+  const prices = { 'prod-1': 12, 'prod-2': 14, 'prod-3': 120, 'prod-4': 15, 'prod-5': 6 }
+  for (const [id, price] of Object.entries(prices)) {
+    await prisma.product.update({ where: { id }, data: { price } }).catch(() => {})
+  }
+
+  // Dostawca
+  const supplier = await prisma.supplier.upsert({
+    where: { id: 'sup-1' }, update: {},
+    create: { id: 'sup-1', organizationId: org.id, name: 'Hurtownia Smaku', contact: 'Jan Kowal', phone: '600100200', email: 'biuro@hurtowniasmaku.pl' },
+  })
+
+  // Magazyn (część poniżej minimum, by uruchomić sugestie zamówień)
+  const items = [
+    { id: 'inv-1', name: 'Mąka pszenna typ 550', category: 'Surowce', unit: 'kg', stock: 12, minStock: 20, costPerUnit: 3 },
+    { id: 'inv-2', name: 'Masło 82%', category: 'Nabiał', unit: 'kg', stock: 4, minStock: 10, costPerUnit: 32 },
+    { id: 'inv-3', name: 'Czekolada deserowa', category: 'Surowce', unit: 'kg', stock: 8, minStock: 5, costPerUnit: 28 },
+    { id: 'inv-4', name: 'Mleko 3.2%', category: 'Nabiał', unit: 'l', stock: 25, minStock: 15, costPerUnit: 3.5 },
+  ]
+  for (const it of items) {
+    await prisma.inventoryItem.upsert({ where: { id: it.id }, update: {}, create: { ...it, organizationId: org.id, supplierId: supplier.id } })
+  }
+
+  // Receptura: Croissant maślany (10 szt) — mąka 1kg + masło 0.5kg
+  const existingRecipe = await prisma.recipe.findUnique({ where: { productId: 'prod-1' } })
+  if (!existingRecipe) {
+    await prisma.recipe.create({
+      data: {
+        organizationId: org.id, productId: 'prod-1', yield: 10,
+        items: { create: [
+          { inventoryItemId: 'inv-1', quantity: 1, unit: 'kg' },
+          { inventoryItemId: 'inv-2', quantity: 0.5, unit: 'kg' },
+        ] },
+      },
+    })
+  }
 
   // Straty (koszt spójny z cennikiem)
   await prisma.wasteReport.createMany({
