@@ -138,6 +138,9 @@ model Organization {
   alerts             Alert[]
   sopDocuments       SopDocument[]
   auditLogs          AuditLog[]
+  zones              Zone[]
+  restaurantTables   RestaurantTable[]
+  tableOrders        TableOrder[]
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -203,6 +206,7 @@ model Location {
   users     User[]
   shifts    Shift[]
   schedules Schedule[]
+  zones     Zone[]
 
   @@index([organizationId])
 }
@@ -876,4 +880,99 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@index([organizationId, createdAt])
+}
+
+// ===== Interaktywny plan sali i stolików + zamówienia na żywo =====
+
+enum OrderItemKind {
+  FOOD
+  DRINK
+}
+
+enum OrderItemStatus {
+  PENDING    // oczekuje
+  PREPARING  // w przygotowaniu
+  READY      // gotowe
+  SERVED     // wydane
+}
+
+enum TableOrderStatus {
+  OPEN
+  CLOSED
+}
+
+// Strefa restauracji (np. Sala główna, Taras, Ogródek, VIP).
+model Zone {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  locationId     String?
+  location       Location? @relation(fields: [locationId], references: [id])
+
+  name      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  tables RestaurantTable[]
+
+  @@index([organizationId])
+  @@index([locationId])
+}
+
+// Stolik w strefie (np. W1, M2, F1).
+model RestaurantTable {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  zoneId         String
+  zone           Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  name      String
+  seats     Int      @default(2)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  orders TableOrder[]
+
+  @@index([organizationId])
+  @@index([zoneId])
+}
+
+// Zamówienie/rachunek przypisany do stolika.
+model TableOrder {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tableId        String
+  table          RestaurantTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  status     TableOrderStatus @default(OPEN)
+  openedById String?
+  openedAt   DateTime @default(now())
+  closedAt   DateTime?
+  saleId     String?  // powiązanie ze sprzedażą po zamknięciu rachunku
+  total      Float    @default(0)
+
+  items TableOrderItem[]
+
+  @@index([organizationId, status])
+  @@index([tableId])
+}
+
+// Pozycja zamówienia (jedzenie/picie) ze statusem realizacji.
+model TableOrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     TableOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String?  // denormalizowane (zachowuje nazwę po zmianie produktu)
+  name      String
+  kind      OrderItemKind   @default(FOOD)
+  quantity  Int      @default(1)
+  unitPrice Float    @default(0)
+  status    OrderItemStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
 }

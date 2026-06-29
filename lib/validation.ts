@@ -262,6 +262,22 @@ export const recipeSchema = z.object({
     .max(100),
 })
 
+// ===== Plan sali / stoliki / zamówienia =====
+export const zoneSchema = z.object({ name: z.string().min(1).max(80), locationId: z.string().min(1).optional() })
+export const zoneUpdateSchema = z.object({ name: z.string().min(1).max(80).optional(), sortOrder: z.number().int().optional() })
+export const tableSchema = z.object({ zoneId: z.string().min(1), name: z.string().min(1).max(40), seats: z.number().int().min(1).max(100).default(2) })
+export const tableUpdateSchema = z.object({ name: z.string().min(1).max(40).optional(), seats: z.number().int().min(1).max(100).optional(), zoneId: z.string().min(1).optional(), sortOrder: z.number().int().optional() })
+export const orderAddItemsSchema = z.object({
+  items: z.array(z.object({
+    productId: z.string().min(1).optional(),
+    name: z.string().min(1).max(160),
+    kind: z.enum(['FOOD', 'DRINK']).default('FOOD'),
+    quantity: z.number().int().min(1).max(999).default(1),
+    unitPrice: z.number().nonnegative().default(0),
+  })).min(1).max(100),
+})
+export const orderItemStatusSchema = z.object({ status: z.enum(['PENDING', 'PREPARING', 'READY', 'SERVED']) })
+
 export const recipeGuideSchema = z.object({
   instructions: z.string().max(8000).optional(),
   prepTimeMin: z.number().int().nonnegative().max(100000).optional(),
