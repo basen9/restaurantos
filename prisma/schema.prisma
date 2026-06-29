@@ -133,6 +133,8 @@ model Organization {
   sales              Sale[]
   posConnection      PosConnection?
   cooReviews         CooReview[]
+  invoices           Invoice[]
+  ksefConnection     KsefConnection?
   auditLogs          AuditLog[]
 }
 
@@ -558,7 +560,8 @@ model Supplier {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  items InventoryItem[]
+  items    InventoryItem[]
+  invoices Invoice[]
 
   @@index([organizationId])
 }
@@ -580,8 +583,9 @@ model InventoryItem {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  recipeItems RecipeItem[]
-  movements   StockMovement[]
+  recipeItems  RecipeItem[]
+  movements    StockMovement[]
+  invoiceItems InvoiceItem[]
 
   @@index([organizationId])
   @@index([organizationId, category])
@@ -701,6 +705,71 @@ model CooReview {
   createdAt DateTime @default(now())
 
   @@index([organizationId, createdAt])
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// FAKTURY ZAKUPOWE — OCR + KSeF + automatyczna aktualizacja cen zakupu
+// ──────────────────────────────────────────────────────────────────────────
+
+enum InvoiceSource {
+  MANUAL // ręczne
+  OCR    // skan + ekstrakcja (Vision)
+  KSEF   // Krajowy System e-Faktur
+}
+
+enum InvoiceStatus {
+  PENDING   // sparsowana, czeka na potwierdzenie
+  CONFIRMED // zatwierdzona → zaktualizowała magazyn i ceny
+}
+
+model KsefConnection {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  nip        String?
+  environment String  @default("test") // test | prod
+  connected  Boolean  @default(false)
+  lastSyncAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierId     String?
+  supplier       Supplier? @relation(fields: [supplierId], references: [id])
+
+  number      String?
+  supplierName String?
+  issueDate   DateTime?
+  source      InvoiceSource @default(OCR)
+  status      InvoiceStatus @default(PENDING)
+  total       Float    @default(0)
+  externalId  String?  // np. numer KSeF (idempotencja)
+  createdAt   DateTime @default(now())
+  confirmedAt DateTime?
+
+  items InvoiceItem[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, externalId])
+}
+
+model InvoiceItem {
+  id              String  @id @default(cuid())
+  invoiceId       String
+  invoice         Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  inventoryItemId String? // dopasowanie do pozycji magazynowej
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
+
+  name      String
+  quantity  Float   @default(0)
+  unit      String  @default("szt")
+  unitPrice Float   @default(0)
+  total     Float   @default(0)
 }
 
 model AuditLog {

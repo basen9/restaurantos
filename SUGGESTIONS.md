@@ -45,6 +45,8 @@ Status: ✅ wdrożone · 🟦 zaplanowane · 💡 pomysł.
 - **Wdrożenie:** drawer mobilny w `AppShell`, breakpointy Tailwind, dedykowany layout `/kiosk`.
 - **Status:** 🟦
 
+> Aktualizacja: ✅ OCR faktur (Vision) + KSeF (mock, gotowy pod gov) + auto-aktualizacja cen zakupu wdrożone. Następne: realny provider KSeF (token/cert, JPK), auto-zatwierdzanie przy wysokiej pewności dopasowania, ręczne mapowanie nierozpoznanych pozycji, **historia cen zakupu + alert skoku ceny dostawcy** (uzasadnienie: wczesne wykrycie wzrostu kosztów chroni food cost i marżę).
+
 ### B4. 🟡 OCR faktur → magazyn → ceny → food cost
 - **Problem:** ręczne wpisywanie cen zakupu jest barierą adopcji i źródłem błędów.
 - **Propozycja:** zdjęcie/PDF faktury → ekstrakcja pozycji (LLM Vision) → aktualizacja cen i stanów.
