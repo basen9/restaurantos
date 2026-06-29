@@ -237,6 +237,35 @@ async function main() {
     ],
   })
 
+  // Plan sali: strefy + stoliki + przykładowy otwarty rachunek
+  const zoneMain = await prisma.zone.upsert({ where: { id: 'zone-main' }, update: {}, create: { id: 'zone-main', organizationId: org.id, locationId: location.id, name: 'Sala główna', sortOrder: 0 } })
+  const zoneTaras = await prisma.zone.upsert({ where: { id: 'zone-taras' }, update: {}, create: { id: 'zone-taras', organizationId: org.id, locationId: location.id, name: 'Taras', sortOrder: 1 } })
+  await prisma.restaurantTable.createMany({
+    skipDuplicates: true,
+    data: [
+      { id: 'tbl-w1', organizationId: org.id, zoneId: zoneMain.id, name: 'W1', seats: 2, sortOrder: 0 },
+      { id: 'tbl-w2', organizationId: org.id, zoneId: zoneMain.id, name: 'W2', seats: 4, sortOrder: 1 },
+      { id: 'tbl-w3', organizationId: org.id, zoneId: zoneMain.id, name: 'W3', seats: 4, sortOrder: 2 },
+      { id: 'tbl-t1', organizationId: org.id, zoneId: zoneTaras.id, name: 'T1', seats: 2, sortOrder: 0 },
+      { id: 'tbl-t2', organizationId: org.id, zoneId: zoneTaras.id, name: 'T2', seats: 6, sortOrder: 1 },
+    ],
+  })
+  const existingOrder = await prisma.tableOrder.findFirst({ where: { id: 'order-demo' } })
+  if (!existingOrder) {
+    await prisma.tableOrder.create({
+      data: {
+        id: 'order-demo', organizationId: org.id, tableId: 'tbl-w2', openedById: 'user-anna', total: 38,
+        items: {
+          create: [
+            { name: 'Croissant maślany', productId: 'prod-1', kind: 'FOOD', quantity: 2, unitPrice: 12, status: 'SERVED' },
+            { name: 'Brownie czekoladowe', productId: 'prod-4', kind: 'FOOD', quantity: 1, unitPrice: 15, status: 'PREPARING' },
+            { name: 'Kawa latte', kind: 'DRINK', quantity: 1, unitPrice: 11, status: 'PENDING' },
+          ],
+        },
+      },
+    })
+  }
+
   console.log('✅ Seed complete!')
   console.log('')
   console.log('🔑 Login credentials:')

@@ -27,16 +27,19 @@ chk "EMP /owner -> 307" 307 "$(code emp /owner)"
 chk "EMP GET /api/users -> 403" 403 "$(code emp /api/users)"
 chk "EMP GET /api/analytics -> 403" 403 "$(code emp /api/analytics)"
 chk "EMP POST /api/locations -> 403" 403 "$(pcode emp POST /api/locations '{"name":"x"}')"
+chk "EMP POST /api/zones -> 403" 403 "$(pcode emp POST /api/zones '{"name":"x"}')"
+chk "EMP GET /api/floor -> 200" 200 "$(code emp /api/floor)"
 chk "OWNER GET /api/analytics -> 200" 200 "$(code owner /api/analytics)"
 chk "OWNER GET /api/locations -> 200" 200 "$(code owner /api/locations)"
+chk "OWNER GET /api/floor -> 200" 200 "$(code owner /api/floor)"
 
 echo "== Strony OWNER (brak placeholderów) =="
-for p in /owner /owner/coo /owner/alerts /owner/analytics /owner/warehouse /owner/invoices /owner/recipes /owner/schedule /owner/locations /owner/reports /owner/employees /owner/tasks /owner/vacations /owner/waste /owner/incidents; do
+for p in /owner /owner/coo /owner/alerts /owner/analytics /owner/floor /owner/warehouse /owner/invoices /owner/recipes /owner/schedule /owner/locations /owner/reports /owner/employees /owner/tasks /owner/vacations /owner/waste /owner/incidents; do
   chk "OWNER $p -> 200" 200 "$(code owner $p)"
 done
 
 echo "== Strony EMPLOYEE =="
-for p in /dashboard /schedule /time /availability /sop /recipes /checklists /production /inventory /messages /performance /tasks /waste /incidents /vacation /assistant; do
+for p in /dashboard /floor /schedule /time /availability /sop /recipes /checklists /production /inventory /messages /performance /tasks /waste /incidents /vacation /assistant; do
   chk "EMP $p -> 200" 200 "$(code emp $p)"
 done
 

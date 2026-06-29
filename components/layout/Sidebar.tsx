@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Calendar, Clock, Umbrella, CheckSquare, ListTodo,
   Package, Trash2, AlertTriangle, Bell, MessageSquare, Bot, BarChart3,
-  Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine, MapPin, BookOpen, CalendarCheck, FileSpreadsheet
+  Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine, MapPin, BookOpen, CalendarCheck, FileSpreadsheet, LayoutGrid
 } from 'lucide-react'
 
 const employeeNav = [
@@ -18,6 +18,7 @@ const employeeNav = [
     { href: '/vacation', label: 'Urlopy', icon: Umbrella },
   ]},
   { section: 'Praca', items: [
+    { href: '/floor', label: 'Plan sali', icon: LayoutGrid },
     { href: '/tasks', label: 'Zadania', icon: CheckSquare, badge: 'tasks' },
     { href: '/checklists', label: 'Checklisty', icon: ListTodo },
     { href: '/sop', label: 'SOP / procedury', icon: BookOpen },
@@ -53,6 +54,7 @@ const ownerNav = [
     { href: '/owner/vacations', label: 'Urlopy', icon: Umbrella },
   ]},
   { section: 'Operacje', items: [
+    { href: '/owner/floor', label: 'Plan sali', icon: LayoutGrid },
     { href: '/owner/warehouse', label: 'Magazyn', icon: Warehouse },
     { href: '/owner/invoices', label: 'Faktury (OCR/KSeF)', icon: ScanLine },
     { href: '/owner/recipes', label: 'Receptury & food cost', icon: ChefHat },
