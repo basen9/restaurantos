@@ -88,3 +88,6 @@ Status: ✅ wdrożone · 🟦 zaplanowane · 💡 pomysł.
 - 🟡 **Rate-limiting i limity kosztów AI** per organizacja. **Wdrożenie:** licznik w Redis + budżet tokenów na tenant.
 - ✅ **AI z tool-use** (Claude `claude-opus-4-8`) wdrożone w AI COO Premium (6 narzędzi, agentowa pętla, degradacja regułowa, rate-limit, trwałe przeglądy). Pozostało: **streaming (SSE)** w czacie, **cron auto-przegląd** + powiadomienie, **budżet tokenów per org** (twardszy limit kosztów). Uzasadnienie: streaming poprawia UX długich odpowiedzi; cron buduje nawyk i retencję; budżet tokenów chroni marżę przy skali.
 - 🟢 **Testy** (unit dla domeny, e2e dla ścieżek krytycznych) — dziś brak.
+
+### F. Hardening v1 (znane niuanse)
+- 🟡 **Uprawnienia w JWT** — zmiany uprawnień działają po ponownym logowaniu (token niesie permissions). Opcje: krótszy maxAge JWT + refresh, albo odczyt uprawnień z DB per request dla wrażliwych akcji. Uzasadnienie: natychmiastowe cofnięcie dostępu.

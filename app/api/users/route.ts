@@ -8,7 +8,7 @@ export const GET = handle(async () => {
   const user = await requirePermission(PERMISSIONS.VIEW_USERS)
   const users = await prisma.user.findMany({
     where: { ...orgScope(user), isActive: true },
-    select: { id: true, name: true, email: true, role: true, position: true, locationId: true },
+    select: { id: true, name: true, email: true, role: true, position: true, locationId: true, permissions: true },
     orderBy: { name: 'asc' },
   })
   return NextResponse.json(users)

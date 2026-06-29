@@ -9,8 +9,9 @@ import { prisma } from '@/lib/prisma'
 // Payload "centrum dowodzenia" — odpowiada na 5 pytań właściciela w 30 s:
 // 1) ile dziś zarobiłem  2) gdzie tracę  3) który lokal rentowny
 // 4) co zamówić  5) co wymaga uwagi
-export const GET = handle(async () => {
+export const GET = handle(async (req) => {
   const user = await requirePermission(PERMISSIONS.VIEW_ANALYTICS)
+  const locationId = new URL(req.url).searchParams.get('locationId')
   const org = orgScope(user)
 
   const now = new Date()
@@ -119,25 +120,48 @@ export const GET = handle(async () => {
 
   const wasteTrendPct = wasteYesterdayCost > 0 ? Math.round(((wasteTodayCost - wasteYesterdayCost) / wasteYesterdayCost) * 100) : null
 
+  const finance = {
+    posConnected,
+    salesToday: posConnected ? salesToday : null,
+    salesYesterday: posConnected ? salesYesterday : null,
+    salesWeek: posConnected ? salesWeek : null,
+    profitToday: operatingProfit,
+    marginPct,
+    foodCostPct: foodCostActualPct ?? avgFoodCost,
+    laborCostPct,
+    laborCostToday: laborToday,
+  }
+  const team = { totalEmployees, activeNow: activeShifts.length, scheduledToday: scheduledShifts.length }
+  const waste = { today: wasteTodayCost, yesterday: wasteYesterdayCost, week: wasteWeekCost, month: wasteMonthCost, trendPct: wasteTrendPct, topProducts }
+  const attention = { openIncidents, pendingVacations, openTasks }
+
+  // Filtr lokalu — nadpisanie metryk hero/zespołu policzonym rozbiciem per-lokal.
+  const loc = locationId ? locationRanking.find((l) => l.id === locationId) : null
+  if (loc) {
+    finance.salesToday = posConnected ? loc.revenueToday : null
+    finance.salesWeek = posConnected ? loc.revenueWeek : null
+    finance.salesYesterday = null
+    finance.marginPct = loc.marginPct
+    finance.foodCostPct = loc.marginPct != null ? 100 - loc.marginPct : finance.foodCostPct
+    finance.laborCostPct = loc.laborPct
+    finance.laborCostToday = loc.laborToday
+    finance.profitToday = loc.marginPct != null ? Math.round((loc.revenueToday * loc.marginPct) / 100 - loc.laborToday) : null
+    team.totalEmployees = loc.headcount
+    team.activeNow = loc.activeNow
+    waste.month = loc.wasteMonth
+    attention.openIncidents = loc.openIncidents
+  }
+
   return NextResponse.json({
-    finance: {
-      posConnected,
-      salesToday: posConnected ? salesToday : null,
-      salesYesterday: posConnected ? salesYesterday : null,
-      salesWeek: posConnected ? salesWeek : null,
-      profitToday: operatingProfit,
-      marginPct,
-      foodCostPct: foodCostActualPct ?? avgFoodCost,
-      laborCostPct,
-      laborCostToday: laborToday,
-    },
+    finance,
     foodCostVariance: topVariance,
-    waste: { today: wasteTodayCost, yesterday: wasteYesterdayCost, week: wasteWeekCost, month: wasteMonthCost, trendPct: wasteTrendPct, topProducts },
+    waste,
     foodCost: { avgPct: avgFoodCost, items: foodCostItems },
     locations: locationRanking,
+    selectedLocationId: loc ? loc.id : null,
     ordering: { configured: stockItems.length > 0, lowCount: lowStock.length, totalCost: orderTotalCost, suggestions: orderSuggestions },
-    attention: { openIncidents, pendingVacations, openTasks },
-    team: { totalEmployees, activeNow: activeShifts.length, scheduledToday: scheduledShifts.length },
+    attention,
+    team,
     decisions,
   })
 })

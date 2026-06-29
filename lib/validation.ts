@@ -212,6 +212,13 @@ export const locationUpdateSchema = z
   })
   .strict()
 
+export const userUpdateSchema = z
+  .object({
+    permissions: z.array(z.string().max(60)).max(30).optional(),
+    position: z.string().max(120).optional(),
+  })
+  .strict()
+
 export const supplierSchema = z.object({
   name: z.string().min(1).max(160),
   contact: z.string().max(160).optional(),
