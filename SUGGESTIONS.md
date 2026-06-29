@@ -31,6 +31,8 @@ Status: ✅ wdrożone · 🟦 zaplanowane · 💡 pomysł.
 - **Wdrożenie:** model `Decision { type, title, impactPLN, status, payload }`; generator reguł (Etap 3) zasila skrzynkę; UI = lista kart z akcją.
 - **Status:** 🟦
 
+> Aktualizacja: ✅ Inteligentny grafik (prognoza popytu → rekomendowana obsada → generator z dostępnością + pokrycie) wdrożony. Następne: kompetencje/stanowiska w przydziale, prognoza godzinowa (peak hours), czynniki zewnętrzne (pogoda/święta), publikacja DRAFT→PUBLISHED z powiadomieniami i akceptacją pracownika. Uzasadnienie: precyzyjniejsza obsada wprost obniża koszt pracy % i braki w godzinach szczytu.
+
 ### B2. 🟠 Theoretical vs Actual food cost (wariancja)
 - **Problem:** straty i remanenty są dziś oderwane od receptur i sprzedaży — nie widać „znikających pieniędzy".
 - **Propozycja:** food cost teoretyczny (receptury × ceny zakupu × sprzedaż POS) vs rzeczywisty (zużycie z magazynu) → **wariancja** = sygnał kradzieży/przeporcjowania.

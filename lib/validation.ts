@@ -56,6 +56,10 @@ export const saleSchema = z.object({
     .max(100),
 })
 
+export const scheduleGenerateSchema = z.object({
+  weekStart: z.coerce.date(),
+})
+
 export const cooSchema = z.object({
   mode: z.enum(['chat', 'review']).default('chat'),
   message: z.string().max(4000).optional(),
