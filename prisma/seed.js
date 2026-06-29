@@ -228,6 +228,15 @@ async function main() {
     ],
   })
 
+  // SOP (procedury)
+  await prisma.sopDocument.createMany({
+    skipDuplicates: true,
+    data: [
+      { id: 'sop-1', organizationId: org.id, title: 'Otwarcie lokalu', category: 'Operacje', content: '1. Włącz ekspres i sprawdź wodę.\n2. Sprawdź temperatury lodówek (min. 4°C).\n3. Przygotuj wypieki i pieczywo.\n4. Włącz terminal płatniczy.' },
+      { id: 'sop-2', organizationId: org.id, title: 'Higiena i HACCP', category: 'Bezpieczeństwo', content: '1. Myj ręce co 30 min i po każdej czynności brudnej.\n2. Notuj temperatury lodówek 2× dziennie.\n3. Oznaczaj daty otwarcia produktów.' },
+    ],
+  })
+
   console.log('✅ Seed complete!')
   console.log('')
   console.log('🔑 Login credentials:')

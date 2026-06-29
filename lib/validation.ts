@@ -58,6 +58,33 @@ export const saleSchema = z.object({
 
 export const alertDecisionSchema = z.object({ status: z.enum(['DISMISSED', 'RESOLVED']) }).strict()
 
+export const availabilitySchema = z.object({
+  days: z
+    .array(z.object({
+      dayOfWeek: z.number().int().min(0).max(6),
+      available: z.boolean(),
+      fromTime: optionalTime,
+      toTime: optionalTime,
+      notes: z.string().max(200).optional(),
+    }))
+    .max(7),
+})
+
+export const sopSchema = z.object({
+  title: z.string().min(1).max(200),
+  category: z.string().max(80).default('Ogólne'),
+  content: z.string().min(1).max(20000),
+})
+
+export const sopUpdateSchema = z
+  .object({
+    title: z.string().min(1).max(200).optional(),
+    category: z.string().max(80).optional(),
+    content: z.string().min(1).max(20000).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict()
+
 export const scheduleGenerateSchema = z.object({
   weekStart: z.coerce.date(),
 })
