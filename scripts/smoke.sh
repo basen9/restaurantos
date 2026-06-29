@@ -18,6 +18,12 @@ pcode() { curl -s -b "$JAR_DIR/$1" -o /dev/null -w "%{http_code}" -X "$2" -H 'Co
 echo "== Health =="
 chk "GET /api/health" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/health")"
 
+echo "== PWA =="
+chk "GET /manifest.webmanifest" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$B/manifest.webmanifest")"
+chk "GET /sw.js" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$B/sw.js")"
+chk "GET /offline.html" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$B/offline.html")"
+chk "GET /icon-192.png" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$B/icon-192.png")"
+
 echo "== Logowanie =="
 login owner owner@workos.pl owner123 >/dev/null; chk "OWNER login" OWNER "$(role owner)"
 login emp anna@workos.pl anna123 >/dev/null;    chk "EMPLOYEE login" EMPLOYEE "$(role emp)"
