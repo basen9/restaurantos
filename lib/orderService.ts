@@ -58,10 +58,28 @@ export async function addItems(user: U, tableId: string, items: { productId?: st
 
 // Zmiana statusu pojedynczej pozycji (kuchnia/kelner). Weryfikuje przynależność do org.
 export async function setItemStatus(user: U, itemId: string, status: 'PENDING' | 'PREPARING' | 'READY' | 'SERVED') {
-  const item = await prisma.tableOrderItem.findFirst({ where: { id: itemId, order: { ...orgScope(user) } }, select: { id: true } })
+  const item = await prisma.tableOrderItem.findFirst({ where: { id: itemId, order: { ...orgScope(user) } }, select: { id: true, voided: true } })
   if (!item) throw new ApiError(404, 'Pozycja nie istnieje')
+  if (item.voided) throw new ApiError(400, 'Pozycja jest wystornowana')
   const updated = await prisma.tableOrderItem.update({ where: { id: itemId }, data: { status } })
   await audit(user, 'orderItem.status', 'TableOrderItem', itemId, { status })
+  return updated
+}
+
+// Storno pozycji (loss prevention): oznacza jako voided + powód; aktualizuje sumę rachunku.
+// Nie usuwamy rekordu — zostaje do raportu storn. Tylko z OTWARTEGO rachunku.
+export async function voidItem(user: U, itemId: string, reason: string) {
+  const item = await prisma.tableOrderItem.findFirst({ where: { id: itemId, order: { ...orgScope(user) } }, include: { order: { select: { id: true, status: true } } } })
+  if (!item) throw new ApiError(404, 'Pozycja nie istnieje')
+  if (item.order.status !== 'OPEN') throw new ApiError(400, 'Rachunek jest zamknięty')
+  if (item.voided) return item
+  const updated = await prisma.$transaction(async (tx) => {
+    const u = await tx.tableOrderItem.update({ where: { id: itemId }, data: { voided: true, voidReason: reason, voidedById: user.id, voidedAt: new Date() } })
+    const all = await tx.tableOrderItem.findMany({ where: { orderId: item.order.id } })
+    await tx.tableOrder.update({ where: { id: item.order.id }, data: { total: orderTotal(all) } })
+    return u
+  })
+  await audit(user, 'orderItem.void', 'TableOrderItem', itemId, { reason, amount: item.quantity * item.unitPrice })
   return updated
 }
 
@@ -76,16 +94,17 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
   })
   if (!order) throw new ApiError(404, 'Rachunek nie istnieje')
   if (order.status === 'CLOSED') return order
-  if (order.items.length === 0) throw new ApiError(400, 'Pusty rachunek — dodaj pozycje przed zamknięciem')
+  const liveItems = order.items.filter((i) => !i.voided) // storno poza rachunkiem
+  if (liveItems.length === 0) throw new ApiError(400, 'Pusty rachunek — dodaj pozycje przed zamknięciem')
 
-  const subtotal = orderTotal(order.items)
+  const subtotal = orderTotal(liveItems)
   const discount = Math.min(round2(opts.discount || 0), subtotal) // rabat nie większy niż wartość rachunku
   const tip = round2(opts.tip || 0)
   const netTotal = round2(subtotal - discount) // przychód brutto do analityki (bez napiwku)
   // Rabat rozkładamy proporcjonalnie na pozycje; zapisujemy brutto po rabacie na SaleItem,
   // dzięki czemu VAT na Sale i rozbicie w raporcie liczone są z TYCH SAMYCH kwot (reconcile).
   const discountFactor = subtotal > 0 ? netTotal / subtotal : 1
-  const adjusted = order.items.map((i) => ({ ...i, adjGross: round2(i.quantity * i.unitPrice * discountFactor) }))
+  const adjusted = liveItems.map((i) => ({ ...i, adjGross: round2(i.quantity * i.unitPrice * discountFactor) }))
   const vat = totalVatGross(adjusted.map((i) => ({ gross: i.adjGross, vatRate: i.vatRate })))
   const splitCount = opts.splitCount && opts.splitCount > 0 ? opts.splitCount : 1
   // Przychód przypisujemy do lokalu STOLIKA (strefy), nie zamykającego użytkownika.

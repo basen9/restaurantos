@@ -322,6 +322,7 @@ export const orderAddItemsSchema = z.object({
   })).min(1).max(100),
 })
 export const orderItemStatusSchema = z.object({ status: z.enum(['PENDING', 'PREPARING', 'READY', 'SERVED']) })
+export const voidItemSchema = z.object({ reason: z.string().min(1).max(200) })
 export const closeOrderSchema = z.object({
   discount: z.number().nonnegative().default(0),
   tip: z.number().nonnegative().default(0),
