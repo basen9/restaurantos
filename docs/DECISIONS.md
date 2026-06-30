@@ -16,6 +16,10 @@ praktykami światowych POS, zawsze **konfigurowalne z panelu** (bez zmian w kodz
 - **Kelner** może udzielać rabatów **tylko w ramach limitu %** ustawionego przez właściciela
   (`waiterDiscountLimitPct`, domyślnie 0 = bez rabatów). Przekroczenie limitu → odmowa (403).
 - Wszystkie operacje (rabat, storno, comp, zamknięcie) są **audytowane** (`AuditLog`).
+- Limit kelnera dotyczy **rabatu ręcznego**; wymiana punktów lojalnościowych jest niezależna
+  (punkty są zarobione przez gościa, nie da się ich „nabić" — brak endpointu przyznawania punktów).
+  **Uwaga przy rozbudowie:** ewentualny przyszły endpoint przyznawania punktów musi być
+  ograniczony uprawnieniem managera, by nie obejść limitu rabatu kelnera.
 
 ## 2FA
 - **Opcjonalne** dla każdego użytkownika (TOTP, bez usług zewnętrznych).
