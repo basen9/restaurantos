@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
 import { rateLimit } from './ratelimit'
+import { verifyTOTP } from './totp'
 
 // Fail-fast: na produkcji odrzucamy brak / placeholder / zbyt krótki sekret JWT.
 // Słaby sekret = możliwość podrobienia sesji. Pomijamy fazę builda (next build ustawia
@@ -21,6 +22,7 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        token: { label: '2FA', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
@@ -35,6 +37,30 @@ export const authOptions: NextAuthOptions = {
         if (!user.organization?.isActive) return null
         const valid = await bcrypt.compare(credentials.password, user.password)
         if (!valid) return null
+
+        // Drugi składnik (TOTP) — tylko gdy użytkownik ma aktywne 2FA. Komunikaty
+        // 2FA_REQUIRED / 2FA_INVALID są odczytywane na ekranie logowania (res.error),
+        // by pokazać pole na kod lub błąd. Akceptujemy też jednorazowy kod odzyskiwania.
+        if (user.twoFactorEnabled && user.twoFactorSecret) {
+          const token = (credentials.token || '').trim()
+          if (!token) throw new Error('2FA_REQUIRED')
+          const totpOk = verifyTOTP(user.twoFactorSecret, token, Date.now())
+          let recoveryOk = false
+          if (!totpOk && user.twoFactorRecoveryCodes.length > 0) {
+            for (const h of user.twoFactorRecoveryCodes) {
+              if (await bcrypt.compare(token, h)) { recoveryOk = true; break }
+            }
+            if (recoveryOk) {
+              // Kod odzyskiwania jest jednorazowy — usuwamy zużyty skrót.
+              const remaining: string[] = []
+              for (const h of user.twoFactorRecoveryCodes) {
+                if (!(await bcrypt.compare(token, h))) remaining.push(h)
+              }
+              await prisma.user.update({ where: { id: user.id }, data: { twoFactorRecoveryCodes: remaining } })
+            }
+          }
+          if (!totpOk && !recoveryOk) throw new Error('2FA_INVALID')
+        }
         return {
           id: user.id,
           name: user.name,

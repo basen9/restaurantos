@@ -7,7 +7,7 @@ import { useT } from '@/components/i18n/I18nProvider'
 import {
   LayoutDashboard, Calendar, Clock, Umbrella, CheckSquare, ListTodo,
   Package, Trash2, AlertTriangle, Bell, MessageSquare, Bot, BarChart3,
-  Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine, MapPin, BookOpen, CalendarCheck, FileSpreadsheet, LayoutGrid, UtensilsCrossed, Flame, Banknote
+  Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine, MapPin, BookOpen, CalendarCheck, FileSpreadsheet, LayoutGrid, UtensilsCrossed, Flame, Banknote, ShieldCheck
 } from 'lucide-react'
 
 const employeeNav = [
@@ -37,6 +37,7 @@ const employeeNav = [
   ]},
   { section: 'Profil', items: [
     { href: '/performance', label: 'Moje wyniki', icon: BarChart3 },
+    { href: '/security', label: 'Bezpieczeństwo (2FA)', i18nKey: 'nav.security', icon: ShieldCheck },
   ]},
 ]
 
@@ -77,6 +78,7 @@ const ownerNav = [
   { section: 'Komunikacja', items: [
     { href: '/notifications', label: 'Powiadomienia', icon: Bell, badge: 'notifs' },
     { href: '/messages', label: 'Wiadomości', icon: MessageSquare },
+    { href: '/security', label: 'Bezpieczeństwo (2FA)', i18nKey: 'nav.security', icon: ShieldCheck },
   ]},
 ]
 

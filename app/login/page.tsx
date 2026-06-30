@@ -7,15 +7,30 @@ import toast from 'react-hot-toast'
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [token, setToken] = useState('')
+  const [needs2fa, setNeeds2fa] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const res = await signIn('credentials', { email, password, redirect: false })
+    const res = await signIn('credentials', { email, password, token, redirect: false })
     setLoading(false)
-    if (res?.error) { toast.error('Nieprawidłowy email lub hasło'); return }
+    if (res?.error) {
+      if (res.error === '2FA_REQUIRED') {
+        setNeeds2fa(true)
+        toast('Podaj kod uwierzytelniania dwuskładnikowego')
+        return
+      }
+      if (res.error === '2FA_INVALID') {
+        setNeeds2fa(true)
+        toast.error('Nieprawidłowy kod 2FA')
+        return
+      }
+      toast.error('Nieprawidłowy email lub hasło')
+      return
+    }
     toast.success('Zalogowano pomyślnie')
     // Routing po roli: root przekieruje OWNER → /owner, EMPLOYEE → /dashboard.
     router.push('/')
@@ -61,6 +76,14 @@ export default function LoginPage() {
               <input type="password" className="input" placeholder="••••••••"
                 value={password} onChange={e => setPassword(e.target.value)} required />
             </div>
+            {needs2fa && (
+              <div>
+                <label className="block text-xs font-semibold text-[#6B7A8D] uppercase tracking-wider mb-2">Kod 2FA</label>
+                <input type="text" inputMode="numeric" autoComplete="one-time-code" className="input tracking-[0.4em] text-center"
+                  placeholder="000000" value={token} onChange={e => setToken(e.target.value)} autoFocus required />
+                <p className="text-[10px] text-[#6B7A8D] mt-1.5">Wpisz 6-cyfrowy kod z aplikacji uwierzytelniającej lub kod odzyskiwania.</p>
+              </div>
+            )}
             <button type="submit" className="btn btn-gold w-full justify-center py-3 text-sm mt-2" disabled={loading}>
               {loading ? (
                 <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />Logowanie...</span>

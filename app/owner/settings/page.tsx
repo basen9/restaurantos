@@ -80,6 +80,24 @@ export default function SettingsPage() {
         <Row label="Wartość 1 punktu (zł)" hint="przy wymianie"><input className="input w-24 text-right" type="number" step="0.01" value={s.loyaltyRedeemValue} onChange={num('loyaltyRedeemValue')} /></Row>
       </div>
 
+      <div className="card p-5 mb-4">
+        <div className="text-xs font-semibold text-[#6B7A8D] uppercase tracking-widest mb-1">Bezpieczeństwo</div>
+        <p className="text-xs text-[#6B7A8D] mb-2">Wymuś uwierzytelnianie dwuskładnikowe (2FA) dla wybranych ról. Użytkownicy tych ról nie będą mogli wyłączyć 2FA.</p>
+        {[{ code: 'OWNER', label: 'Właściciele' }, { code: 'EMPLOYEE', label: 'Pracownicy (w tym managerowie)' }].map((r) => {
+          const roles: string[] = s.twoFactorRequiredRoles || []
+          const checked = roles.includes(r.code)
+          return (
+            <Row key={r.code} label={`Wymuś 2FA — ${r.label}`}>
+              <input type="checkbox" checked={checked} onChange={(e) => setS((p: any) => {
+                const cur: string[] = p.twoFactorRequiredRoles || []
+                const next = e.target.checked ? Array.from(new Set([...cur, r.code])) : cur.filter((x) => x !== r.code)
+                return { ...p, twoFactorRequiredRoles: next }
+              })} />
+            </Row>
+          )
+        })}
+      </div>
+
       <button className="btn btn-gold" disabled={save.isPending} onClick={() => save.mutate(s)}>{save.isPending ? 'Zapisywanie…' : 'Zapisz ustawienia'}</button>
     </div>
   )
