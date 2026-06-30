@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildAlertsFromSnapshot } from '@/lib/alertsEngine'
+import { buildAlertsFromSnapshot, buildSlowServiceAlert } from '@/lib/alertsEngine'
 
 const snap = (over: any = {}): any => ({
   date: '2026-06-29',
@@ -36,5 +36,23 @@ describe('buildAlertsFromSnapshot', () => {
   it('dodaje alert wariancji powyżej progu', () => {
     const alerts = buildAlertsFromSnapshot(snap({ openIncidents: 0, lowStock: [] }), [{ name: 'Masło', variance: 2, unit: 'kg', varianceCost: 64 }])
     expect(alerts.map((a) => a.type)).toContain('variance')
+  })
+})
+
+describe('buildSlowServiceAlert', () => {
+  const now = new Date('2026-06-29T12:00:00Z').getTime()
+  const ago = (m: number) => new Date(now - m * 60000)
+  it('alarmuje gdy stolik czeka >= próg (pomija wydane/storno)', () => {
+    const orders = [
+      { tableName: 'W1', items: [{ status: 'PENDING', createdAt: ago(25) }] },
+      { tableName: 'W2', items: [{ status: 'SERVED', createdAt: ago(40) }] },
+    ]
+    const a = buildSlowServiceAlert(orders, 20, now, '2026-06-29')
+    expect(a?.type).toBe('slow_service')
+    expect(a?.title).toContain('1 stolik')
+  })
+  it('brak alertu gdy poniżej progu', () => {
+    const orders = [{ tableName: 'W1', items: [{ status: 'PENDING', createdAt: ago(5) }] }]
+    expect(buildSlowServiceAlert(orders, 20, now, '2026-06-29')).toBeNull()
   })
 })
