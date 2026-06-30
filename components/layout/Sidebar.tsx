@@ -69,6 +69,7 @@ const ownerNav = [
     { href: '/sop', label: 'SOP / procedury', icon: BookOpen },
     { href: '/owner/waste', label: 'Straty', icon: Trash2 },
     { href: '/owner/incidents', label: 'Awarie', icon: AlertTriangle },
+    { href: '/owner/audit', label: 'Dziennik audytu', icon: FileSpreadsheet },
     { href: '/owner/settings', label: 'Ustawienia', icon: Settings },
   ]},
   { section: 'Komunikacja', items: [

@@ -2,6 +2,8 @@
 import { prisma } from './prisma'
 import { getBusinessSnapshot, type BusinessSnapshot } from './insights'
 import { foodCostVariance } from './finance'
+import { oldestUnservedMin } from './floor'
+import { loadSettings } from './settingsService'
 import { recipientsWithPermission } from './notify'
 import { PERMISSIONS } from './permissions'
 import type { AuthUser } from './api'
@@ -44,6 +46,29 @@ export function buildAlertsFromSnapshot(s: BusinessSnapshot, variance: VarianceR
   return out
 }
 
+// Alert "wolnej obsługi": stoliki, których najstarsza niewydana pozycja czeka >= próg.
+// Pure → testowalne. day w dedupeKey, by nie spamować w obrębie doby.
+export function buildSlowServiceAlert(
+  openOrders: { tableName: string; items: { status?: string; voided?: boolean; createdAt?: Date | string }[] }[],
+  thresholdMin: number,
+  now: number,
+  day: string,
+): AlertSeed | null {
+  const slow = openOrders
+    .map((o) => ({ table: o.tableName, wait: oldestUnservedMin(o.items as any, now) }))
+    .filter((o) => o.wait != null && o.wait >= thresholdMin)
+    .sort((a, b) => (b.wait || 0) - (a.wait || 0))
+  if (!slow.length) return null
+  return {
+    dedupeKey: `slow_service:${day}`,
+    type: 'slow_service',
+    severity: 'HIGH',
+    title: `${slow.length} stolik(ów) czeka długo na wydanie`,
+    detail: `Najdłużej: ${slow.slice(0, 3).map((s) => `${s.table} (${s.wait} min)`).join(', ')}. Sprawdź kuchnię/obsługę.`,
+    actionHref: '/owner/floor',
+  }
+}
+
 // Generuje i utrwala alerty (idempotentnie wobec OPEN o tym samym dedupeKey). Powiadamia właścicieli.
 export async function runAlerts(user: Pick<AuthUser, 'id' | 'organizationId'>) {
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
@@ -52,6 +77,14 @@ export async function runAlerts(user: Pick<AuthUser, 'id' | 'organizationId'>) {
     foodCostVariance(user.organizationId, monthStart),
   ])
   const seeds = buildAlertsFromSnapshot(snapshot, variance.filter((v) => v.varianceCost > 0))
+
+  // Alert wolnej obsługi z bieżącego stanu sali (próg z ustawień).
+  const [settings, openOrders] = await Promise.all([
+    loadSettings(user.organizationId),
+    prisma.tableOrder.findMany({ where: { organizationId: user.organizationId, status: 'OPEN' }, include: { items: { select: { status: true, voided: true, createdAt: true } }, table: { select: { name: true } } } }),
+  ])
+  const slowSeed = buildSlowServiceAlert(openOrders.map((o) => ({ tableName: o.table?.name || '—', items: o.items })), settings.slowServiceMinutes, Date.now(), snapshot.date)
+  if (slowSeed) seeds.push(slowSeed)
 
   const existing = await prisma.alert.findMany({
     where: { organizationId: user.organizationId, status: 'OPEN', dedupeKey: { in: seeds.map((s) => s.dedupeKey) } },
