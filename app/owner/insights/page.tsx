@@ -31,12 +31,29 @@ export default function InsightsPage() {
 
       {!hasData ? <EmptyState icon="📊" text="Brak sprzedaży w okresie" sub="Zamknij rachunki na sali, aby zobaczyć raporty" /> : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <StatCard label="Przychód" value={`${r.revenue} zł`} accent="gold" />
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <StatCard label="Przychód brutto" value={`${r.revenue} zł`} accent="gold" />
+            <StatCard label="VAT" value={`${r.vatTotal ?? 0} zł`} sub={`netto ${(Math.round((r.revenue - (r.vatTotal || 0)) * 100) / 100)} zł`} />
             <StatCard label="Transakcje" value={r.transactions} sub={`śr. paragon ${r.avgTicket} zł`} />
             <StatCard label="Napiwki" value={`${r.tips} zł`} accent="green" />
             <StatCard label="Rabaty" value={`${r.discounts} zł`} accent={r.discounts > 0 ? 'red' : undefined} />
           </div>
+
+          {Array.isArray(r.vatByRate) && r.vatByRate.length > 0 && (
+            <div className="card p-5 mb-6">
+              <div className="text-xs font-semibold text-[#6B7A8D] uppercase tracking-widest mb-3">Rozbicie VAT (księgowość)</div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {r.vatByRate.map((v: any) => (
+                  <div key={v.rate} className="p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    <div className="text-sm font-semibold text-[#E8ECF0]">Stawka {v.rate}%</div>
+                    <div className="text-xs text-[#6B7A8D] mt-1">Netto: <span className="text-[#E8ECF0]">{v.net} zł</span></div>
+                    <div className="text-xs text-[#6B7A8D]">VAT: <span className="text-[#E8B923]">{v.vat} zł</span></div>
+                    <div className="text-xs text-[#6B7A8D]">Brutto: <span className="text-[#E8ECF0]">{v.gross} zł</span></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="card p-5 mb-6">
             <div className="text-xs font-semibold text-[#6B7A8D] uppercase tracking-widest mb-3">Sprzedaż wg godziny</div>

@@ -3,6 +3,7 @@
 import { prisma } from './prisma'
 import { orderTotal } from './floor'
 import { round2 } from './finance'
+import { orderVat } from './tax'
 import { audit } from './audit'
 import { ApiError, orgScope, type AuthUser } from './api'
 
@@ -28,19 +29,24 @@ export async function getOpenOrder(user: U, tableId: string) {
 export async function addItems(user: U, tableId: string, items: { productId?: string; name: string; notes?: string; kind: 'FOOD' | 'DRINK'; quantity: number; unitPrice: number }[]) {
   await assertTable(user, tableId)
 
-  // Walidacja, że podane productId należą do organizacji (denormalizujemy referencję).
+  // Walidacja, że podane productId należą do organizacji (denormalizujemy referencję)
+  // + pobranie stawki VAT produktu (kopiowanej na pozycję).
   const ids = Array.from(new Set(items.map((i) => i.productId).filter(Boolean))) as string[]
   const validIds = new Set<string>()
+  const vatById = new Map<string, number>()
   if (ids.length) {
-    const found = await prisma.product.findMany({ where: { id: { in: ids }, ...orgScope(user) }, select: { id: true } })
-    found.forEach((p) => validIds.add(p.id))
+    const found = await prisma.product.findMany({ where: { id: { in: ids }, ...orgScope(user) }, select: { id: true, vatRate: true } })
+    found.forEach((p) => { validIds.add(p.id); vatById.set(p.id, p.vatRate) })
   }
 
   const order = await prisma.$transaction(async (tx) => {
     let o = await tx.tableOrder.findFirst({ where: { tableId, ...orgScope(user), status: 'OPEN' }, select: { id: true } })
     if (!o) o = await tx.tableOrder.create({ data: { organizationId: user.organizationId, tableId, openedById: user.id }, select: { id: true } })
     await tx.tableOrderItem.createMany({
-      data: items.map((i) => ({ orderId: o!.id, productId: i.productId && validIds.has(i.productId) ? i.productId : null, name: i.name, notes: i.notes || null, kind: i.kind, quantity: i.quantity, unitPrice: i.unitPrice })),
+      data: items.map((i) => {
+        const validPid = i.productId && validIds.has(i.productId) ? i.productId : null
+        return { orderId: o!.id, productId: validPid, name: i.name, notes: i.notes || null, kind: i.kind, quantity: i.quantity, unitPrice: i.unitPrice, vatRate: validPid ? (vatById.get(validPid) ?? 8) : 8 }
+      }),
     })
     const all = await tx.tableOrderItem.findMany({ where: { orderId: o.id } })
     await tx.tableOrder.update({ where: { id: o.id }, data: { total: orderTotal(all) } })
@@ -75,7 +81,10 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
   const subtotal = orderTotal(order.items)
   const discount = Math.min(round2(opts.discount || 0), subtotal) // rabat nie większy niż wartość rachunku
   const tip = round2(opts.tip || 0)
-  const netTotal = round2(subtotal - discount) // przychód do analityki (bez napiwku)
+  const netTotal = round2(subtotal - discount) // przychód brutto do analityki (bez napiwku)
+  // VAT zawarty w cenie brutto, skorygowany proporcjonalnie o rabat.
+  const discountFactor = subtotal > 0 ? netTotal / subtotal : 1
+  const vat = orderVat(order.items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice, vatRate: i.vatRate })), discountFactor)
   const splitCount = opts.splitCount && opts.splitCount > 0 ? opts.splitCount : 1
   // Przychód przypisujemy do lokalu STOLIKA (strefy), nie zamykającego użytkownika.
   const locationId = order.table?.zone?.locationId ?? user.locationId ?? null
@@ -92,11 +101,12 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
         total: netTotal,
         subtotal,
         discount,
+        vat,
         tip,
         paymentMethod: opts.paymentMethod || null,
         splitCount,
         source: 'POS',
-        items: { create: order.items.map((i) => ({ productId: i.productId || null, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, total: round2(i.quantity * i.unitPrice) })) },
+        items: { create: order.items.map((i) => ({ productId: i.productId || null, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, total: round2(i.quantity * i.unitPrice), vatRate: i.vatRate })) },
       },
     })
     await tx.tableOrder.update({ where: { id: order.id }, data: { saleId: sale.id } })

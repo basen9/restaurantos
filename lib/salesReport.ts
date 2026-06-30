@@ -1,19 +1,28 @@
 // Czysta agregacja raportów sprzedaży — testowalna bez bazy.
+import { vatBreakdown } from './tax'
+
 export interface SaleLike {
   total: number
   tip?: number
   discount?: number
+  vat?: number
   paymentMethod?: string | null
   soldAt: Date | string
-  items: { name: string; quantity: number; total: number }[]
+  items: { name: string; quantity: number; total: number; vatRate?: number }[]
 }
 
 export function buildSalesReport(sales: SaleLike[], days: number) {
   const revenue = round2(sales.reduce((s, x) => s + x.total, 0))
   const tips = round2(sales.reduce((s, x) => s + (x.tip || 0), 0))
   const discounts = round2(sales.reduce((s, x) => s + (x.discount || 0), 0))
+  const vatTotal = round2(sales.reduce((s, x) => s + (x.vat || 0), 0))
   const transactions = sales.length
   const avgTicket = transactions ? round2(revenue / transactions) : 0
+
+  // Rozbicie VAT wg stawki (księgowość) — na podstawie pozycji.
+  const vatByRate = vatBreakdown(
+    sales.flatMap((s) => s.items.map((i) => ({ quantity: i.quantity, unitPrice: i.total / Math.max(1, i.quantity), vatRate: i.vatRate ?? 8 }))),
+  )
 
   // Bestsellery wg nazwy pozycji (ilość + przychód).
   const prodMap = new Map<string, { name: string; qty: number; revenue: number }>()
@@ -39,7 +48,7 @@ export function buildSalesReport(sales: SaleLike[], days: number) {
   }
   const paymentBreakdown = Array.from(payMap.values()).map((e) => ({ ...e, total: round2(e.total) })).sort((a, b) => b.total - a.total)
 
-  return { days, revenue, tips, discounts, transactions, avgTicket, bestSellers, byHour, paymentBreakdown }
+  return { days, revenue, tips, discounts, vatTotal, vatByRate, transactions, avgTicket, bestSellers, byHour, paymentBreakdown }
 }
 
 function round2(n: number) { return Math.round(n * 100) / 100 }
