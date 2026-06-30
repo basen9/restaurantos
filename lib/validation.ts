@@ -262,6 +262,21 @@ export const recipeSchema = z.object({
     .max(100),
 })
 
+// ===== Ustawienia organizacji =====
+export const settingsSchema = z.object({
+  currency: z.string().min(1).max(8).optional(),
+  defaultVatRate: z.number().min(0).max(100).optional(),
+  serviceChargePct: z.number().min(0).max(100).optional(),
+  tipModel: z.enum(['individual', 'pooled']).optional(),
+  voidRequiresManager: z.boolean().optional(),
+  cashTipsInDrawer: z.boolean().optional(),
+  loyaltyEnabled: z.boolean().optional(),
+  loyaltyPointsPerCurrency: z.number().min(0).max(1000).optional(),
+  loyaltyRedeemValue: z.number().min(0).max(1000).optional(),
+  slowServiceMinutes: z.number().int().min(1).max(240).optional(),
+  reservationsEnabled: z.boolean().optional(),
+})
+
 // ===== Kasa / rozliczenie zmiany =====
 export const cashOpenSchema = z.object({ openingFloat: z.number().nonnegative().max(1000000).default(0), locationId: z.string().min(1).optional() })
 export const cashMovementSchema = z.object({ type: z.enum(['IN', 'OUT']), amount: z.number().positive().max(1000000), reason: z.string().max(200).optional() })
