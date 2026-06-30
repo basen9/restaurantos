@@ -20,7 +20,7 @@ export default withAuth(
   },
 )
 
-// Chroni wszystkie strony poza: /login, /api/*, zasoby Next, pliki statyczne.
+// Chroni wszystkie strony poza: /login, /api/*, publiczne menu /m/*, zasoby Next, pliki statyczne.
 export const config = {
-  matcher: ['/((?!api|login|_next/static|_next/image|favicon.ico|.*\\.).*)'],
+  matcher: ['/((?!api|login|m/|_next/static|_next/image|favicon.ico|.*\\.).*)'],
 }

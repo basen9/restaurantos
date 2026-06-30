@@ -18,6 +18,11 @@ pcode() { curl -s -b "$JAR_DIR/$1" -o /dev/null -w "%{http_code}" -X "$2" -H 'Co
 echo "== Health =="
 chk "GET /api/health" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/health")"
 
+echo "== Publiczne menu QR (bez logowania) =="
+chk "GET /api/public/menu/krakow-bakery" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/public/menu/krakow-bakery")"
+chk "GET /m/krakow-bakery (publiczne)" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$B/m/krakow-bakery")"
+chk "GET /api/public/menu/nieistnieje -> 404" 404 "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/public/menu/nieistnieje")"
+
 echo "== PWA =="
 chk "GET /manifest.webmanifest" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$B/manifest.webmanifest")"
 chk "GET /sw.js" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$B/sw.js")"

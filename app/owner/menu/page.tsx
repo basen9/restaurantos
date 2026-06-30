@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
 import { Plus, Pencil, UtensilsCrossed } from 'lucide-react'
+import { QrMenuCard } from '@/components/menu/QrMenuCard'
 
 const jsonOk = (r: Response) => { if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Błąd') }); return r.json() }
 const empty = { name: '', category: '', unit: 'szt', price: '', costPerUnit: '', description: '', available: true }
@@ -41,6 +42,8 @@ export default function MenuPage() {
         </div>
         <button className="btn btn-gold" onClick={() => setEdit({ ...empty })}><Plus size={14} /> Pozycja</button>
       </div>
+
+      <QrMenuCard />
 
       {list.length === 0 ? <EmptyState icon="🍽️" text="Brak pozycji w menu" sub="Dodaj pierwszą pozycję karty" /> : (
         <div className="space-y-6">
