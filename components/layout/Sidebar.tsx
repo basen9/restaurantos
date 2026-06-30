@@ -52,6 +52,7 @@ const ownerNav = [
     { href: '/owner/locations', label: 'Lokale', icon: MapPin },
     { href: '/owner/employees', label: 'Pracownicy', icon: Users },
     { href: '/owner/schedule', label: 'Grafiki', icon: Calendar },
+    { href: '/owner/payroll', label: 'Płace', icon: Banknote },
     { href: '/owner/tasks', label: 'Zadania', icon: CheckSquare },
     { href: '/owner/vacations', label: 'Urlopy', icon: Umbrella },
   ]},

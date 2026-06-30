@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 import { handle, requirePermission, orgScope, ApiError } from '@/lib/api'
 import { PERMISSIONS } from '@/lib/permissions'
+import { computePayroll } from '@/lib/payroll'
 import { prisma } from '@/lib/prisma'
 
 const esc = (v: unknown) => {
@@ -24,6 +25,18 @@ export const GET = handle(async (req) => {
   const to = searchParams.get('to') ? new Date(searchParams.get('to')!) : new Date()
   const org = orgScope(user)
   const stamp = new Date().toISOString().slice(0, 10)
+
+  if (type === 'payroll') {
+    await requirePermission(PERMISSIONS.VIEW_FINANCE) // dane płacowe — wymóg finansowy
+    const shifts = await prisma.shift.findMany({
+      where: { ...org, status: 'COMPLETED', date: { gte: from, lte: to } },
+      select: { actualStart: true, actualEnd: true, status: true, startTime: true, endTime: true, userId: true, user: { select: { name: true, hourlyRate: true } } },
+      take: 50000,
+    })
+    const rows = computePayroll(shifts.map((s) => ({ userId: s.userId, userName: s.user?.name || '—', hourlyRate: s.user?.hourlyRate || 0, actualStart: s.actualStart, actualEnd: s.actualEnd, status: s.status, startTime: s.startTime, endTime: s.endTime })))
+    const csv = toCsv(['Pracownik', 'Zmiany', 'Godziny', 'Stawka (zł/h)', 'Brutto (zł)'], rows.map((r) => [r.name, r.shifts, r.hours, r.hourlyRate, r.gross]))
+    return csvResponse(`place_${stamp}.csv`, csv)
+  }
 
   if (type === 'waste') {
     const rows = await prisma.wasteReport.findMany({ where: { ...org, date: { gte: from, lte: to } }, include: { user: { select: { name: true } } }, orderBy: { date: 'desc' }, take: 10000 })
@@ -57,5 +70,5 @@ export const GET = handle(async (req) => {
     return csvResponse(`food_cost_${stamp}.csv`, csv)
   }
 
-  throw new ApiError(400, 'Nieznany typ raportu. Dozwolone: waste, sales, inventory, foodcost.')
+  throw new ApiError(400, 'Nieznany typ raportu. Dozwolone: waste, sales, inventory, foodcost, payroll.')
 })

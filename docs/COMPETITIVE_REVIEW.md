@@ -23,5 +23,20 @@ zwiększają wartość dla właścicieli i pracowników. Wdrażane kolejno jako 
 | G | CRM gości + lojalność (punkty, historia) | Powracalność, marketing | roadmapa |
 | H | Realne płatności (terminal/online) | Wymaga integracji zewnętrznej (Stripe/Adyen) | zewnętrzne |
 
-## Kolejność wdrożenia
-A (menu — fundament) → B (KDS — konsumuje menu/zamówienia) → C (rozliczenie — domyka cykl) → D (raporty — czytają sprzedaż). E–G jako kolejna transza; H zależne od dostawcy płatności.
+## Warstwa księgowo-finansowa (najsłabsza vs MICROS/Toast — uzupełniona)
+| # | Funkcja | Dlaczego ważna | Status |
+|---|---------|----------------|--------|
+| K1 | **VAT na pozycjach + rozbicie podatku** | Bez VAT brak realnego rozliczenia fiskalnego | ✅ wdrożone |
+| K2 | **Rozliczenie zmiany kasowej (cash drawer / Z-raport)** | Kontrola gotówki, wykrywanie niedoborów | ✅ wdrożone |
+| K3 | **Raport i eksport płac (godziny × stawka)** | Księgowość: przygotowanie wynagrodzeń z odbitych zmian | ✅ wdrożone |
+
+## Kolejna transza (po stronie produktu / decyzji biznesowych)
+- **Void/storno pozycji z powodem** (loss prevention) — kontrola anulowań przed płatnością.
+- **Przenoszenie/łączenie rachunków między stolikami** — elastyczność obsługi.
+- **Atrybucja sprzedaży/napiwków do kelnera** — wymaga przypisania kelnera do rachunku (podstawa pod tip-pooling i ranking kelnerów); decyzja o modelu napiwków.
+- **Rezerwacje / lista oczekujących**, **CRM + lojalność** — nowe domeny.
+- **Realne płatności / fiskalizacja drukarki** — integracje zewnętrzne (Stripe/Adyen, drukarka fiskalna).
+
+## Kolejność wdrożenia (zrealizowana)
+A (menu) → B (KDS) → C (rozliczenie) → D (raporty) → E (QR-menu) → K1 (VAT) → K2 (kasa) → K3 (płace).
+Każdy etap: implementacja → audyt → naprawa → testy (tsc/vitest/build/smoke/E2E) → PR → merge.
