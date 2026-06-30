@@ -1107,6 +1107,10 @@ model Guest {
   phone       String?
   email       String?
   notes       String?
+  preferences String?   // preferencje (np. ulubiony stolik, sposób podania)
+  allergens   String[] @default([]) // alergeny gościa
+  tags        String[] @default([]) // segmentacja (np. VIP, stały, firmowy)
+  birthday    DateTime? // data urodzin (kampanie urodzinowe)
   points      Int      @default(0)   // saldo punktów lojalnościowych
   visits      Int      @default(0)
   totalSpent  Float    @default(0)

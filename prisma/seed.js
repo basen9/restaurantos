@@ -61,7 +61,7 @@ async function main() {
 
   const employee = await prisma.user.upsert({
     where: { email: 'anna@workos.pl' },
-    update: {},
+    update: { permissions: [] }, // deterministyczny seed: zwykły pracownik (bez uprawnień)
     create: {
       id: 'user-anna', organizationId: org.id, name: 'Anna Wiśniewska', email: 'anna@workos.pl',
       password: hash('anna123'), role: 'EMPLOYEE', position: 'Barista', locationId: location.id,

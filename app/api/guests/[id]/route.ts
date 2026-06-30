@@ -22,9 +22,11 @@ export const PATCH = handle(async (req, { params }: { params: { id: string } }) 
   const data = parseBody(guestUpdateSchema, await req.json())
   const existing = await prisma.guest.findFirst({ where: { id: params.id, ...orgScope(user) }, select: { id: true } })
   if (!existing) throw new ApiError(404, 'Gość nie istnieje')
+  const { birthday, ...rest } = data
+  const birthdayVal = birthday === undefined ? undefined : (birthday ? new Date(birthday as any) : null)
   let updated
   try {
-    updated = await prisma.guest.update({ where: { id: params.id }, data: { ...data, email: data.email ? data.email.toLowerCase() : null } })
+    updated = await prisma.guest.update({ where: { id: params.id }, data: { ...rest, email: data.email ? data.email.toLowerCase() : (data.email === '' ? null : undefined), ...(birthdayVal !== undefined ? { birthday: birthdayVal } : {}) } })
   } catch (e: any) {
     if (e?.code === 'P2002') throw new ApiError(409, 'Gość z tym adresem e-mail już istnieje')
     throw e
