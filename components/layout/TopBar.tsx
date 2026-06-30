@@ -1,6 +1,6 @@
 'use client'
 import { useSession, signOut } from 'next-auth/react'
-import { Bell, LogOut, ChevronDown, Menu, Globe } from 'lucide-react'
+import { Bell, LogOut, ChevronDown, Menu, Globe, LayoutGrid, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { getInitials } from '@/lib/utils'
 import Link from 'next/link'
@@ -89,8 +89,16 @@ export function TopBar({ notifCount = 0, shiftActive = false, shiftElapsed = '',
                 <div className="text-xs font-semibold text-[#E8ECF0]">{user?.name}</div>
                 <div className="text-[10px] text-[#6B7A8D]">{user?.email}</div>
               </div>
+              <Link href="/launcher"
+                className="flex items-center gap-2 w-full px-3 py-2 text-xs text-[#9AAAB8] hover:text-[#E8ECF0] hover:bg-white/5 transition-all">
+                <LayoutGrid size={13} /> Przełącz moduł
+              </Link>
+              <Link href="/security"
+                className="flex items-center gap-2 w-full px-3 py-2 text-xs text-[#9AAAB8] hover:text-[#E8ECF0] hover:bg-white/5 transition-all">
+                <ShieldCheck size={13} /> Bezpieczeństwo
+              </Link>
               <button onClick={() => signOut({ callbackUrl: '/login' })}
-                className="flex items-center gap-2 w-full px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition-all">
+                className="flex items-center gap-2 w-full px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition-all border-t border-white/5 mt-1">
                 <LogOut size={13} /> {t('common.logout')}
               </button>
             </div>

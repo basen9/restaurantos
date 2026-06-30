@@ -32,6 +32,32 @@ export default function SecurityPage() {
     onError: (e: any) => toast.error(e.message),
   })
 
+  // --- Tożsamość 2.0: zaufane urządzenia + PIN szybkiego logowania ---
+  const { data: devices = [] } = useQuery({ queryKey: ['devices'], queryFn: () => fetch('/api/devices').then(jsonOk) })
+  const [newPin, setNewPin] = useState('')
+  const [curPin, setCurPin] = useState('')
+  const trustDevice = useMutation({
+    mutationFn: (shared: boolean) => fetch('/api/devices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shared }) }).then(jsonOk),
+    onSuccess: () => { toast.success('Urządzenie zaufane'); qc.invalidateQueries({ queryKey: ['devices'] }) },
+    onError: (e: any) => toast.error(e.message),
+  })
+  const revokeDevice = useMutation({
+    mutationFn: (id: string) => fetch(`/api/devices/${id}`, { method: 'DELETE' }).then(jsonOk),
+    onSuccess: () => { toast.success('Zaufanie odwołane'); qc.invalidateQueries({ queryKey: ['devices'] }) },
+    onError: (e: any) => toast.error(e.message),
+  })
+  const savePin = useMutation({
+    mutationFn: () => fetch('/api/auth/pin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: newPin, currentPin: curPin || undefined }) }).then(jsonOk),
+    onSuccess: () => { setNewPin(''); setCurPin(''); toast.success('PIN zapisany') },
+    onError: (e: any) => toast.error(e.message),
+  })
+  const removePin = useMutation({
+    mutationFn: () => fetch('/api/auth/pin', { method: 'DELETE' }).then(jsonOk),
+    onSuccess: () => toast.success('PIN usunięty'),
+    onError: (e: any) => toast.error(e.message),
+  })
+  const currentTrusted = Array.isArray(devices) && devices.some((d: any) => d.current)
+
   if (isLoading) return <PageLoader />
   const enabled = !!status?.enabled
   const enforced = !!status?.enforced
@@ -118,6 +144,64 @@ export default function SecurityPage() {
         {enabled && enforced && (
           <div className="text-xs text-[#6B7A8D] pt-2 border-t border-white/5 mt-2">
             2FA jest wymagane dla Twojej roli przez właściciela — nie można go wyłączyć.
+          </div>
+        )}
+      </div>
+
+      {/* Szybkie logowanie: zaufanie urządzenia + PIN */}
+      <div className="card p-5 mb-4">
+        <div className="text-xs font-semibold text-[#6B7A8D] uppercase tracking-widest mb-1">Szybkie logowanie</div>
+        <p className="text-xs text-[#6B7A8D] mb-3">
+          Zaufaj temu urządzeniu, aby następnym razem logować się błyskawicznie PIN-em (biometria — wkrótce).
+          Sekret urządzenia jest bezpieczny i odwoływalny w każdej chwili.
+        </p>
+        {currentTrusted ? (
+          <div className="flex items-center gap-2 text-xs text-green-400 mb-3"><ShieldCheck size={14} /> To urządzenie jest zaufane.</div>
+        ) : (
+          <div className="flex flex-wrap gap-2 mb-3">
+            <button className="btn btn-gold" disabled={trustDevice.isPending} onClick={() => trustDevice.mutate(false)}>
+              {trustDevice.isPending ? 'Ustawianie…' : 'Zaufaj temu urządzeniu'}
+            </button>
+            <button className="btn btn-ghost" disabled={trustDevice.isPending} onClick={() => trustDevice.mutate(true)}
+              title="Tylko manager — wspólny terminal (np. POS w sali)">
+              Ustaw jako terminal współdzielony
+            </button>
+          </div>
+        )}
+        <div className="space-y-2 pt-3 border-t border-white/5">
+          <div className="text-xs text-[#9AAAB8]">PIN szybkiego logowania (4–6 cyfr):</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input className="input w-32 tracking-[0.3em] text-center" inputMode="numeric" placeholder="Nowy PIN" value={newPin} onChange={(e) => setNewPin(e.target.value)} />
+            <input className="input w-36 tracking-[0.3em] text-center" inputMode="numeric" placeholder="Obecny (przy zmianie)" value={curPin} onChange={(e) => setCurPin(e.target.value)} />
+            <button className="btn btn-gold" disabled={savePin.isPending || newPin.length < 4} onClick={() => savePin.mutate()}>
+              {savePin.isPending ? 'Zapisywanie…' : 'Zapisz PIN'}
+            </button>
+            <button className="btn btn-ghost text-red-400" disabled={removePin.isPending} onClick={() => removePin.mutate()}>Usuń PIN</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Zaufane urządzenia */}
+      <div className="card p-5 mb-4">
+        <div className="text-xs font-semibold text-[#6B7A8D] uppercase tracking-widest mb-2">Zaufane urządzenia</div>
+        {(!Array.isArray(devices) || devices.length === 0) ? (
+          <div className="text-xs text-[#6B7A8D]">Brak zaufanych urządzeń.</div>
+        ) : (
+          <div className="space-y-2">
+            {devices.map((d: any) => (
+              <div key={d.id} className="flex items-center justify-between gap-3 py-2 border-b border-white/5 last:border-0">
+                <div className="min-w-0">
+                  <div className="text-sm text-[#E8ECF0] truncate">
+                    {d.name} {d.shared && <span className="text-[10px] text-yellow-400 ml-1">współdzielone</span>}
+                    {d.current && <span className="text-[10px] text-green-400 ml-1">to urządzenie</span>}
+                  </div>
+                  <div className="text-[11px] text-[#6B7A8D]">ostatnio: {new Date(d.lastSeenAt).toLocaleString('pl-PL')}</div>
+                </div>
+                <button className="btn btn-ghost text-red-400 text-xs flex-shrink-0" disabled={revokeDevice.isPending} onClick={() => revokeDevice.mutate(d.id)}>
+                  Odwołaj
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
