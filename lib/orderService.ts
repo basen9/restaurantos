@@ -3,7 +3,7 @@
 import { prisma } from './prisma'
 import { orderTotal } from './floor'
 import { round2 } from './finance'
-import { orderVat } from './tax'
+import { totalVatGross } from './tax'
 import { audit } from './audit'
 import { ApiError, orgScope, type AuthUser } from './api'
 
@@ -82,9 +82,11 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
   const discount = Math.min(round2(opts.discount || 0), subtotal) // rabat nie większy niż wartość rachunku
   const tip = round2(opts.tip || 0)
   const netTotal = round2(subtotal - discount) // przychód brutto do analityki (bez napiwku)
-  // VAT zawarty w cenie brutto, skorygowany proporcjonalnie o rabat.
+  // Rabat rozkładamy proporcjonalnie na pozycje; zapisujemy brutto po rabacie na SaleItem,
+  // dzięki czemu VAT na Sale i rozbicie w raporcie liczone są z TYCH SAMYCH kwot (reconcile).
   const discountFactor = subtotal > 0 ? netTotal / subtotal : 1
-  const vat = orderVat(order.items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice, vatRate: i.vatRate })), discountFactor)
+  const adjusted = order.items.map((i) => ({ ...i, adjGross: round2(i.quantity * i.unitPrice * discountFactor) }))
+  const vat = totalVatGross(adjusted.map((i) => ({ gross: i.adjGross, vatRate: i.vatRate })))
   const splitCount = opts.splitCount && opts.splitCount > 0 ? opts.splitCount : 1
   // Przychód przypisujemy do lokalu STOLIKA (strefy), nie zamykającego użytkownika.
   const locationId = order.table?.zone?.locationId ?? user.locationId ?? null
@@ -106,7 +108,8 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
         paymentMethod: opts.paymentMethod || null,
         splitCount,
         source: 'POS',
-        items: { create: order.items.map((i) => ({ productId: i.productId || null, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, total: round2(i.quantity * i.unitPrice), vatRate: i.vatRate })) },
+        // total = brutto po rabacie (reconciluje z Sale.total i z rozbiciem VAT w raporcie).
+        items: { create: adjusted.map((i) => ({ productId: i.productId || null, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, total: i.adjGross, vatRate: i.vatRate })) },
       },
     })
     await tx.tableOrder.update({ where: { id: order.id }, data: { saleId: sale.id } })

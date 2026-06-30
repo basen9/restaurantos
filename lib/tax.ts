@@ -7,25 +7,31 @@ export function vatFromGross(gross: number, ratePct: number): number {
   return round2((gross * ratePct) / (100 + ratePct))
 }
 
-export interface TaxLine { quantity: number; unitPrice: number; vatRate: number }
-
-// Łączny VAT zamówienia (brutto pozycji), skorygowany o czynnik rabatu (netto/subtotal).
-export function orderVat(items: TaxLine[], discountFactor = 1): number {
-  const raw = items.reduce((s, i) => s + vatFromGross(i.quantity * i.unitPrice, i.vatRate), 0)
-  return round2(raw * discountFactor)
+// Rozbicie VAT wg stawki z kwot BRUTTO (jedno źródło prawdy dla zamknięcia i raportu).
+// Agregujemy brutto per stawka, zaokrąglamy raz — spójne, bez kumulacji błędów per-linia.
+export function vatBreakdownGross(lines: { gross: number; vatRate: number }[]): { rate: number; gross: number; net: number; vat: number }[] {
+  const map = new Map<number, number>()
+  for (const l of lines) map.set(l.vatRate, (map.get(l.vatRate) || 0) + l.gross)
+  return Array.from(map.entries())
+    .map(([rate, grossSum]) => {
+      const gross = round2(grossSum)
+      const vat = vatFromGross(gross, rate)
+      return { rate, gross, vat, net: round2(gross - vat) }
+    })
+    .sort((a, b) => a.rate - b.rate)
 }
 
-// Rozbicie podatku wg stawki: { rate, gross, net, vat } — dla raportu księgowego.
-export function vatBreakdown(items: TaxLine[]): { rate: number; gross: number; net: number; vat: number }[] {
-  const map = new Map<number, { rate: number; gross: number; vat: number }>()
-  for (const i of items) {
-    const gross = i.quantity * i.unitPrice
-    const e = map.get(i.vatRate) || { rate: i.vatRate, gross: 0, vat: 0 }
-    e.gross += gross
-    e.vat += vatFromGross(gross, i.vatRate)
-    map.set(i.vatRate, e)
-  }
-  return Array.from(map.values())
-    .map((e) => ({ rate: e.rate, gross: round2(e.gross), vat: round2(e.vat), net: round2(e.gross - e.vat) }))
-    .sort((a, b) => a.rate - b.rate)
+// Łączny VAT z kwot brutto (suma rozbicia per stawka — zgodne z vatBreakdownGross).
+export function totalVatGross(lines: { gross: number; vatRate: number }[]): number {
+  return round2(vatBreakdownGross(lines).reduce((s, b) => s + b.vat, 0))
+}
+
+export interface TaxLine { quantity: number; unitPrice: number; vatRate: number }
+
+// Wygodne nakładki dla pozycji ilość×cena.
+export function vatBreakdown(items: TaxLine[]) {
+  return vatBreakdownGross(items.map((i) => ({ gross: i.quantity * i.unitPrice, vatRate: i.vatRate })))
+}
+export function orderVat(items: TaxLine[], discountFactor = 1): number {
+  return totalVatGross(items.map((i) => ({ gross: round2(i.quantity * i.unitPrice * discountFactor), vatRate: i.vatRate })))
 }

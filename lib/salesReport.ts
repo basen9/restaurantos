@@ -1,5 +1,5 @@
 // Czysta agregacja raportów sprzedaży — testowalna bez bazy.
-import { vatBreakdown } from './tax'
+import { vatBreakdownGross } from './tax'
 
 export interface SaleLike {
   total: number
@@ -19,9 +19,10 @@ export function buildSalesReport(sales: SaleLike[], days: number) {
   const transactions = sales.length
   const avgTicket = transactions ? round2(revenue / transactions) : 0
 
-  // Rozbicie VAT wg stawki (księgowość) — na podstawie pozycji.
-  const vatByRate = vatBreakdown(
-    sales.flatMap((s) => s.items.map((i) => ({ quantity: i.quantity, unitPrice: i.total / Math.max(1, i.quantity), vatRate: i.vatRate ?? 8 }))),
+  // Rozbicie VAT wg stawki (księgowość) — z kwot brutto pozycji (już po rabacie),
+  // dzięki czemu uzgadnia się z sumą Sale.vat.
+  const vatByRate = vatBreakdownGross(
+    sales.flatMap((s) => s.items.map((i) => ({ gross: i.total, vatRate: i.vatRate ?? 8 }))),
   )
 
   // Bestsellery wg nazwy pozycji (ilość + przychód).
