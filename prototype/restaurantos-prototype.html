@@ -12,6 +12,9 @@
     --r:14px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  /* iOS Safari: zdarzenie click na <div> wymaga cursor:pointer — inaczej dotyk nie działa */
+  button,[onclick],.module,.table,.mcard,.listrow,.feed,.opt,.ztab,.chip,.key,.method,.modchip,
+  .item,.tkitem,.tkfoot button,.cartbar,.iconbtn,.avatar,.badge,.dot{cursor:pointer;touch-action:manipulation}
   html,body{margin:0;height:100%}
   body{background:#06070b;color:var(--text);font-family:Inter,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px}
   button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
@@ -182,6 +185,22 @@
     background:#0b0c10;border:1px solid var(--line);padding:11px 18px;border-radius:12px;font-weight:600;z-index:70;pointer-events:none;max-width:80%}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .secthead{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);padding:14px 16px 6px}
+
+  /* MOBILE — pełny ekran, większe cele dotykowe */
+  @media (max-width:680px){
+    .stage{padding:0;max-width:100%}
+    .device{height:100dvh;border-radius:0;border:none;box-shadow:none}
+    .stage>.muted{display:none}
+    .protobar{gap:6px;padding:7px 10px}
+    .protobar .tag{flex-basis:100%;margin:0 0 2px}
+    .tables{grid-template-columns:repeat(3,1fr);gap:10px}
+    .grid{grid-template-columns:repeat(2,1fr)}
+    .tickets{grid-template-columns:1fr}
+    .modules{grid-template-columns:1fr}
+    .pad{grid-template-columns:repeat(3,1fr);width:100%;max-width:300px}
+    .key{height:64px}
+    .cartbar{bottom:78px}
+  }
 </style>
 </head>
 <body>
