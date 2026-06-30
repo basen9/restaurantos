@@ -537,6 +537,9 @@ model Product {
   unit        String   @default("szt")
   costPerUnit Float    @default(0) // koszt jednostkowy (np. dla strat)
   price       Float    @default(0) // cena sprzedaży (do food cost %)
+  description String?  // opis pozycji w menu
+  available   Boolean  @default(true) // "86" — czy dostępne do zamówienia teraz
+  sortOrder   Int      @default(0)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
@@ -968,6 +971,7 @@ model TableOrderItem {
 
   productId String?  // denormalizowane (zachowuje nazwę po zmianie produktu)
   name      String
+  notes     String?  // modyfikatory / uwagi (np. "bez cebuli", "dobrze wysmażone")
   kind      OrderItemKind   @default(FOOD)
   quantity  Int      @default(1)
   unitPrice Float    @default(0)

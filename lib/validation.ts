@@ -262,6 +262,28 @@ export const recipeSchema = z.object({
     .max(100),
 })
 
+// ===== Menu / produkty =====
+export const productSchema = z.object({
+  name: z.string().min(1).max(160),
+  category: z.string().min(1).max(80),
+  unit: z.string().min(1).max(20).default('szt'),
+  price: z.number().nonnegative().default(0),
+  costPerUnit: z.number().nonnegative().default(0),
+  description: z.string().max(800).optional(),
+  available: z.boolean().default(true),
+})
+export const productUpdateSchema = z.object({
+  name: z.string().min(1).max(160).optional(),
+  category: z.string().min(1).max(80).optional(),
+  unit: z.string().min(1).max(20).optional(),
+  price: z.number().nonnegative().optional(),
+  costPerUnit: z.number().nonnegative().optional(),
+  description: z.string().max(800).optional(),
+  available: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+})
+
 // ===== Plan sali / stoliki / zamówienia =====
 export const zoneSchema = z.object({ name: z.string().min(1).max(80), locationId: z.string().min(1).optional() })
 export const zoneUpdateSchema = z.object({ name: z.string().min(1).max(80).optional(), sortOrder: z.number().int().optional() })
@@ -271,6 +293,7 @@ export const orderAddItemsSchema = z.object({
   items: z.array(z.object({
     productId: z.string().min(1).optional(),
     name: z.string().min(1).max(160),
+    notes: z.string().max(200).optional(),
     kind: z.enum(['FOOD', 'DRINK']).default('FOOD'),
     quantity: z.number().int().min(1).max(999).default(1),
     unitPrice: z.number().nonnegative().default(0),
