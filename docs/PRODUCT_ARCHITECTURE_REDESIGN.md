@@ -1,9 +1,16 @@
 # RestaurantOS — Przeprojektowanie produktu (architektura + UX)
 
-> Status: **PROPOZYCJA DO AKCEPTACJI**. Zgodnie z decyzją: najpierw architektura i doświadczenie
-> użytkownika, dopiero po akceptacji wracamy do implementacji funkcji.
-> Cel nie jest „najwięcej funkcji", tylko **najlepszy system gastronomiczny na świecie** —
-> klasy Apple: prosty na wierzchu, bardzo rozbudowany pod spodem.
+> Status: **ZAAKCEPTOWANE — w realizacji (plan A)**. Cel nie jest „najwięcej funkcji", tylko
+> **najlepszy system gastronomiczny na świecie** — klasy Apple: prosty na wierzchu, rozbudowany pod spodem.
+
+### Status realizacji
+- ✅ **Etap 0/1 — fundament platformy:** launcher modułów (`/launcher`), routing korzenia
+  (sesja → launcher; zaufane urządzenie z PIN → `/unlock`; inaczej → `/login`), **Tożsamość 2.0**:
+  zaufanie urządzeń (`TrustedDevice`), szybkie odblokowanie **PIN-em** (NextAuth tryb `pin` czyta
+  httpOnly cookie urządzenia), zarządzanie urządzeniami i PIN-em na `/security`, abstrakcja metod
+  (`AuthMethodType`: PIN/WEBAUTHN/NFC/RFID). Testy: jednostkowe + integracyjny na żywo + E2E zielone.
+- ⏭️ **Następne:** biometria **WebAuthn/passkey** (Face ID/Touch ID) jako kolejna metoda; potem
+  warstwa **realtime + offline** (Etap 2), a następnie moduł **POS** (Etap 3).
 
 ---
 

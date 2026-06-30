@@ -8,9 +8,9 @@ export default withAuth(
     const token = req.nextauth.token as any
     const path = req.nextUrl.pathname
 
-    // Strefa właściciela — tylko OWNER.
+    // Strefa właściciela — tylko OWNER. Pozostali wracają do launchera modułów.
     if (path.startsWith('/owner') && token?.role !== 'OWNER') {
-      return NextResponse.redirect(new URL('/dashboard', req.url))
+      return NextResponse.redirect(new URL('/launcher', req.url))
     }
     return NextResponse.next()
   },
@@ -20,7 +20,8 @@ export default withAuth(
   },
 )
 
-// Chroni wszystkie strony poza: /login, /api/*, publiczne menu /m/*, zasoby Next, pliki statyczne.
+// Chroni wszystkie strony poza: /login, /unlock (szybkie odblokowanie przed sesją),
+// /api/*, publiczne menu /m/*, zasoby Next, pliki statyczne.
 export const config = {
-  matcher: ['/((?!api|login|m/|_next/static|_next/image|favicon.ico|.*\\.).*)'],
+  matcher: ['/((?!api|login|unlock|m/|_next/static|_next/image|favicon.ico|.*\\.).*)'],
 }

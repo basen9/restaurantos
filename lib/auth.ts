@@ -4,6 +4,64 @@ import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
 import { rateLimit } from './ratelimit'
 import { verifyTOTPStep } from './totp'
+import {
+  parseCookieHeader, deviceTokenMatches, verifyPin, isLocked, nextFailureState,
+  DEVICE_COOKIE_ID, DEVICE_COOKIE_TOKEN,
+} from './deviceAuth'
+
+// Wspólny kształt obiektu użytkownika zwracanego do sesji (z obu ścieżek: hasło i PIN).
+function sessionUser(user: any) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    permissions: user.permissions,
+    position: user.position,
+    organizationId: user.organizationId,
+    organizationName: user.organization?.name,
+    locationId: user.locationId,
+    locationName: user.location?.name,
+  }
+}
+
+// Szybkie odblokowanie PIN-em na ZAUFANYM urządzeniu. Sekret urządzenia czytamy z httpOnly
+// cookie (req), nie z klienta. Urządzenie osobiste → PIN sprawdzamy dla przypisanego usera;
+// terminal współdzielony (POS) → PIN identyfikuje operatora wśród poświadczeń organizacji.
+async function authorizePin(credentials: any, req: any) {
+  const cookies = parseCookieHeader(req?.headers?.cookie)
+  const deviceId = cookies[DEVICE_COOKIE_ID]
+  const deviceToken = cookies[DEVICE_COOKIE_TOKEN]
+  const pin = (credentials?.pin || '').trim()
+  if (!deviceId || !deviceToken || !pin) return null
+  // Throttling per urządzenie — chroni przed zgadywaniem PIN-u.
+  if (!rateLimit(`pin:${deviceId}`, 10, 5 * 60 * 1000).ok) return null
+
+  const device = await prisma.trustedDevice.findUnique({ where: { id: deviceId } })
+  if (!device || device.revokedAt || !deviceTokenMatches(deviceToken, device.tokenHash)) return null
+  await prisma.trustedDevice.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } })
+
+  const where: any = { organizationId: device.organizationId, type: 'PIN' as const, secret: { not: null } }
+  if (device.userId) where.userId = device.userId // urządzenie osobiste → tylko ten użytkownik
+  const creds = await prisma.authCredential.findMany({ where, include: { user: { include: { location: true, organization: true } } } })
+
+  const now = Date.now()
+  for (const cred of creds) {
+    if (isLocked(cred.lockedUntil, now)) continue
+    if (cred.secret && (await verifyPin(pin, cred.secret))) {
+      const u = cred.user
+      if (!u?.isActive || !u.organization?.isActive) return null
+      await prisma.authCredential.update({ where: { id: cred.id }, data: { failedAttempts: 0, lockedUntil: null, lastUsedAt: new Date() } })
+      return sessionUser(u)
+    }
+  }
+  // Brak trafienia: na urządzeniu osobistym podbijamy licznik błędów konkretnego usera (blokada).
+  if (device.userId && creds[0]) {
+    const s = nextFailureState(creds[0].failedAttempts, now)
+    await prisma.authCredential.update({ where: { id: creds[0].id }, data: s })
+  }
+  return null
+}
 
 // Fail-fast: na produkcji odrzucamy brak / placeholder / zbyt krótki sekret JWT.
 // Słaby sekret = możliwość podrobienia sesji. Pomijamy fazę builda (next build ustawia
@@ -23,8 +81,13 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
         token: { label: '2FA', type: 'text' },
+        mode: { label: 'Mode', type: 'text' },
+        pin: { label: 'PIN', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
+        // Tryb szybkiego odblokowania PIN-em (zaufane urządzenie). Sekret urządzenia z cookie.
+        if (credentials?.mode === 'pin') return authorizePin(credentials, req)
+
         if (!credentials?.email || !credentials?.password) return null
         // Throttling logowania (per e-mail) — ogranicza brute-force / credential stuffing.
         // Najlepszy efekt po przeniesieniu do Redis (multi-instancja); in-memory = per-proces.
@@ -75,18 +138,7 @@ export const authOptions: NextAuthOptions = {
             if (r.count === 0) throw new Error('2FA_INVALID') // wyścig: kod już zużyty
           }
         }
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          permissions: user.permissions,
-          position: user.position,
-          organizationId: user.organizationId,
-          organizationName: user.organization?.name,
-          locationId: user.locationId,
-          locationName: user.location?.name,
-        }
+        return sessionUser(user)
       },
     }),
   ],

@@ -64,6 +64,11 @@ chk "OWNER GET /api/locations -> 200" 200 "$(code owner /api/locations)"
 chk "OWNER GET /api/floor -> 200" 200 "$(code owner /api/floor)"
 chk "EMP GET /api/2fa -> 200" 200 "$(code emp /api/2fa)"
 chk "ANON GET /api/2fa -> 401" 401 "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/2fa")"
+chk "EMP GET /api/devices -> 200" 200 "$(code emp /api/devices)"
+chk "ANON GET /api/devices -> 401" 401 "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/devices")"
+chk "ANON POST /api/auth/pin -> 401" 401 "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{\"pin\":\"1234\"}' "$B/api/auth/pin")"
+chk "EMP /launcher -> 200" 200 "$(code emp /launcher)"
+chk "ANON /unlock (brak urządzenia) -> 307" 307 "$(curl -s -o /dev/null -w '%{http_code}' "$B/unlock")"
 
 echo "== Strony OWNER (brak placeholderów) =="
 for p in /owner /owner/coo /owner/alerts /owner/analytics /owner/insights /owner/payroll /owner/floor /owner/reservations /owner/menu /owner/cash /owner/warehouse /owner/invoices /owner/recipes /owner/schedule /owner/locations /owner/reports /owner/employees /owner/guests /owner/campaigns /owner/tasks /owner/vacations /owner/waste /owner/incidents /owner/audit /owner/settings; do

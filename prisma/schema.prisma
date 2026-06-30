@@ -146,6 +146,7 @@ model Organization {
   reservations       Reservation[]
   guests             Guest[]
   campaigns          Campaign[]
+  trustedDevices     TrustedDevice[]
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -203,9 +204,62 @@ model User {
   stockMovements StockMovement[]
   auditLogs      AuditLog[]
   recipeAccess   RecipeAccessUser[]
+  trustedDevices TrustedDevice[]
+  authCredentials AuthCredential[]
 
   @@index([organizationId])
   @@index([organizationId, role])
+}
+
+// Tożsamość 2.0 — rozszerzalne metody szybkiego logowania (PIN, biometria/WebAuthn,
+// w przyszłości NFC/RFID). Logika w lib/deviceAuth.ts (abstrakcja AuthMethod).
+enum AuthMethodType {
+  PIN
+  WEBAUTHN
+  NFC
+  RFID
+}
+
+// Zaufane urządzenie — po pełnym logowaniu i wyrażeniu zaufania. Urządzenie osobiste
+// ma ustawione userId; współdzielony terminal (np. POS) ma userId = null + shared = true.
+// Sekret urządzenia (cookie) trzymany jako hash (tokenHash). Odwoływalne (revokedAt).
+model TrustedDevice {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locationId     String?
+  name           String
+  shared         Boolean  @default(false)
+  tokenHash      String
+  lastSeenAt     DateTime @default(now())
+  trustedAt      DateTime @default(now())
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([userId])
+}
+
+// Poświadczenie metody szybkiego logowania użytkownika. PIN: secret = hash bcrypt.
+// WebAuthn (przyszłość): data = klucz publiczny + licznik. Blokada po N błędach.
+model AuthCredential {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           AuthMethodType
+  secret         String?
+  data           Json?
+  label          String?
+  failedAttempts Int      @default(0)
+  lockedUntil    DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, type])
+  @@index([userId, type])
 }
 
 model Location {
