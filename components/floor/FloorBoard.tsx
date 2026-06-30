@@ -126,7 +126,10 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
   const add = useMutation({ mutationFn: (body: any) => fetch(`/api/tables/${table.id}/order`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(jsonOk), onSuccess: () => { setItem({ productId: '', name: '', notes: '', kind: 'FOOD', quantity: '1', unitPrice: '' }); refresh() } })
   const setStatus = useMutation({ mutationFn: ({ id, status }: any) => fetch(`/api/order-items/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) }).then(jsonOk), onSuccess: () => refresh() })
   const voidItem = useMutation({ mutationFn: ({ id, reason }: any) => fetch(`/api/order-items/${id}/void`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) }).then(jsonOk), onSuccess: () => refresh(), onError: (e: any) => toast.error(e.message || 'Błąd') })
-  const [bill, setBill] = useState({ discount: '', tip: '', paymentMethod: 'CARD', splitCount: '1' })
+  const [bill, setBill] = useState({ discount: '', tip: '', paymentMethod: 'CARD', splitCount: '1', redeemPoints: '' })
+  const [guestQ, setGuestQ] = useState('')
+  const { data: guestResults = [] } = useQuery({ queryKey: ['guests', guestQ], queryFn: () => fetch(`/api/guests?q=${encodeURIComponent(guestQ)}`).then((r) => r.json()), enabled: guestQ.length >= 2 })
+  const assignGuest = useMutation({ mutationFn: ({ id, guestId }: any) => fetch(`/api/orders/${id}/guest`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guestId }) }).then(jsonOk), onSuccess: () => { setGuestQ(''); refresh() }, onError: (e: any) => toast.error(e.message || 'Błąd') })
   const close = useMutation({ mutationFn: ({ id, body }: any) => fetch(`/api/orders/${id}/close`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(jsonOk), onSuccess: () => { toast.success('Rachunek zamknięty — sprzedaż zapisana'); refresh(); onClose() } })
   const move = useMutation({ mutationFn: ({ id, tableId }: any) => fetch(`/api/orders/${id}/move`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tableId }) }).then(jsonOk), onSuccess: (r: any) => { toast.success(r.mode === 'merge' ? 'Rachunki połączone' : 'Rachunek przeniesiony'); refresh(); onClose() }, onError: (e: any) => toast.error(e.message || 'Błąd') })
 
@@ -171,6 +174,29 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
 
         {isLoading ? <div className="text-sm text-[#6B7A8D]">Ładowanie…</div> : (
           <>
+            {/* Gość (CRM/lojalność) */}
+            {order?.id && (
+              <div className="card p-3">
+                {order.guest ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-[#E8ECF0]">👤 {order.guest.name} <span className="text-xs text-[#E8B923]">· {order.guest.points} pkt</span></span>
+                    <button className="btn btn-ghost text-xs py-1 px-2" onClick={() => assignGuest.mutate({ id: order.id, guestId: null })}>Odepnij</button>
+                  </div>
+                ) : (
+                  <div>
+                    <input className="input text-sm" placeholder="Przypisz gościa (szukaj)…" value={guestQ} onChange={(e) => setGuestQ(e.target.value)} />
+                    {guestQ.length >= 2 && Array.isArray(guestResults) && guestResults.length > 0 && (
+                      <div className="mt-1.5 space-y-1 max-h-32 overflow-y-auto">
+                        {guestResults.slice(0, 6).map((g: any) => (
+                          <button key={g.id} className="w-full text-left text-xs p-1.5 rounded hover:bg-white/5 text-[#9AAAB8]" onClick={() => assignGuest.mutate({ id: order.id, guestId: g.id })}>{g.name}{g.phone ? ` · ${g.phone}` : ''} · {g.points} pkt</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {items.length === 0 ? (
               <div className="text-sm text-[#6B7A8D] py-2">Stolik wolny — dodaj pierwszą pozycję, aby otworzyć rachunek.</div>
             ) : (
@@ -241,6 +267,9 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
                   </select>
                   <input className="input" type="number" min="1" placeholder="Podział (os.)" value={bill.splitCount} onChange={(e) => setBill((s) => ({ ...s, splitCount: e.target.value }))} />
                 </div>
+                {order?.guest && order.guest.points > 0 && (
+                  <input className="input" type="number" min="0" max={order.guest.points} placeholder={`Wymień punkty (saldo ${order.guest.points})`} value={bill.redeemPoints} onChange={(e) => setBill((s) => ({ ...s, redeemPoints: e.target.value }))} />
+                )}
                 {(() => {
                   const disc = Math.min(parseFloat(bill.discount) || 0, total)
                   const tip = parseFloat(bill.tip) || 0
@@ -264,7 +293,7 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
             <div className="flex items-center justify-between pt-2 border-t border-white/5">
               <div className="text-sm text-[#6B7A8D]">Suma pozycji: <span className="text-lg font-display text-[#E8B923]">{total.toFixed(2)} zł</span></div>
               <button className="btn btn-gold" disabled={!order?.id || items.length === 0 || close.isPending}
-                onClick={() => order?.id && close.mutate({ id: order.id, body: { discount: parseFloat(bill.discount) || 0, tip: parseFloat(bill.tip) || 0, paymentMethod: bill.paymentMethod, splitCount: Math.max(1, parseInt(bill.splitCount) || 1) } })}>
+                onClick={() => order?.id && close.mutate({ id: order.id, body: { discount: parseFloat(bill.discount) || 0, tip: parseFloat(bill.tip) || 0, paymentMethod: bill.paymentMethod, splitCount: Math.max(1, parseInt(bill.splitCount) || 1), redeemPoints: parseInt(bill.redeemPoints) || 0 } })}>
                 <Receipt size={14} /> {close.isPending ? 'Zamykanie…' : 'Zamknij rachunek'}</button>
             </div>
           </>

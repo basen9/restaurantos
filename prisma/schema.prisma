@@ -144,6 +144,7 @@ model Organization {
   tableOrders        TableOrder[]
   cashSessions       CashSession[]
   reservations       Reservation[]
+  guests             Guest[]
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -724,6 +725,7 @@ model Sale {
 
   externalId String?    // id z systemu POS (idempotencja synchronizacji)
   serverId   String?    // kelner obsługujący (z TableOrder.openedById) — atrybucja sprzedaży/napiwków
+  guestId    String?    // gość (CRM/lojalność)
   soldAt     DateTime   @default(now())
   total      Float      @default(0) // przychód BRUTTO (po rabacie, BEZ napiwku) — do analityki
   subtotal   Float      @default(0) // wartość pozycji przed rabatem (brutto)
@@ -736,8 +738,10 @@ model Sale {
   createdAt  DateTime   @default(now())
 
   items SaleItem[]
+  guest Guest? @relation(fields: [guestId], references: [id])
 
   @@index([organizationId, soldAt])
+  @@index([guestId])
   @@index([organizationId, locationId, soldAt])
   @@index([organizationId, externalId])
   @@index([organizationId, serverId, soldAt])
@@ -966,6 +970,8 @@ model TableOrder {
 
   status     TableOrderStatus @default(OPEN)
   openedById String?
+  guestId    String?  // przypisany gość (CRM/lojalność)
+  guest      Guest?   @relation(fields: [guestId], references: [id])
   openedAt   DateTime @default(now())
   closedAt   DateTime?
   saleId     String?  // powiązanie ze sprzedażą po zamknięciu rachunku
@@ -1087,4 +1093,29 @@ model Reservation {
 
   @@index([organizationId, startsAt])
   @@index([tableId])
+}
+
+// ===== CRM gości + lojalność =====
+model Guest {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  phone       String?
+  email       String?
+  notes       String?
+  points      Int      @default(0)   // saldo punktów lojalnościowych
+  visits      Int      @default(0)
+  totalSpent  Float    @default(0)
+  lastVisitAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sales  Sale[]
+  orders TableOrder[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId, name])
+  @@index([organizationId, phone])
 }
