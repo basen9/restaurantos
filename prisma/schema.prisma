@@ -105,6 +105,7 @@ model Organization {
   name      String
   slug      String   @unique
   plan      String   @default("FREE") // FREE | PRO | ENTERPRISE
+  settings  Json     @default("{}") // konfiguracja org (waluta, VAT, model napiwków, polityka void itd.)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

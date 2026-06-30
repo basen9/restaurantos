@@ -67,6 +67,7 @@ const ownerNav = [
     { href: '/sop', label: 'SOP / procedury', icon: BookOpen },
     { href: '/owner/waste', label: 'Straty', icon: Trash2 },
     { href: '/owner/incidents', label: 'Awarie', icon: AlertTriangle },
+    { href: '/owner/settings', label: 'Ustawienia', icon: Settings },
   ]},
   { section: 'Komunikacja', items: [
     { href: '/notifications', label: 'Powiadomienia', icon: Bell, badge: 'notifs' },

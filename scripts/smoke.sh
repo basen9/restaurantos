@@ -46,12 +46,14 @@ chk "EMP GET /api/cash -> 403" 403 "$(code emp /api/cash)"
 chk "OWNER GET /api/cash -> 200" 200 "$(code owner /api/cash)"
 chk "EMP GET /api/reports/payroll -> 403" 403 "$(code emp /api/reports/payroll)"
 chk "OWNER GET /api/reports/payroll -> 200" 200 "$(code owner /api/reports/payroll)"
+chk "EMP GET /api/settings -> 200" 200 "$(code emp /api/settings)"
+chk "EMP PATCH /api/settings -> 403" 403 "$(pcode emp PATCH /api/settings '{"currency":"USD"}')"
 chk "OWNER GET /api/analytics -> 200" 200 "$(code owner /api/analytics)"
 chk "OWNER GET /api/locations -> 200" 200 "$(code owner /api/locations)"
 chk "OWNER GET /api/floor -> 200" 200 "$(code owner /api/floor)"
 
 echo "== Strony OWNER (brak placeholderów) =="
-for p in /owner /owner/coo /owner/alerts /owner/analytics /owner/insights /owner/payroll /owner/floor /owner/menu /owner/cash /owner/warehouse /owner/invoices /owner/recipes /owner/schedule /owner/locations /owner/reports /owner/employees /owner/tasks /owner/vacations /owner/waste /owner/incidents; do
+for p in /owner /owner/coo /owner/alerts /owner/analytics /owner/insights /owner/payroll /owner/floor /owner/menu /owner/cash /owner/warehouse /owner/invoices /owner/recipes /owner/schedule /owner/locations /owner/reports /owner/employees /owner/tasks /owner/vacations /owner/waste /owner/incidents /owner/settings; do
   chk "OWNER $p -> 200" 200 "$(code owner $p)"
 done
 
