@@ -118,6 +118,8 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
   const [item, setItem] = useState({ productId: '', name: '', notes: '', kind: 'FOOD', quantity: '1', unitPrice: '' })
   const { data: order, isLoading } = useQuery({ queryKey: ['order', table.id], queryFn: () => fetch(`/api/tables/${table.id}/order`).then((r) => r.json()), refetchInterval: 5000 })
   const { data: products = [] } = useQuery({ queryKey: ['products', 'available'], queryFn: () => fetch('/api/products?availableOnly=1').then((r) => r.json()) })
+  const { data: zones = [] } = useQuery({ queryKey: ['floor'], queryFn: () => fetch('/api/floor').then((r) => r.json()) })
+  const otherTables = (Array.isArray(zones) ? zones : []).flatMap((z: any) => z.tables.filter((t: any) => t.id !== table.id).map((t: any) => ({ id: t.id, name: `${z.name} · ${t.name}${t.occupied ? ' (zajęty → łączenie)' : ''}` })))
   const { data: history = [] } = useQuery({ queryKey: ['order-history', table.id], queryFn: () => fetch(`/api/orders?tableId=${table.id}`).then((r) => r.json()), enabled: showHistory })
 
   const refresh = () => { qc.invalidateQueries({ queryKey: ['order', table.id] }); qc.invalidateQueries({ queryKey: ['floor'] }) }
@@ -126,6 +128,7 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
   const voidItem = useMutation({ mutationFn: ({ id, reason }: any) => fetch(`/api/order-items/${id}/void`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) }).then(jsonOk), onSuccess: () => refresh(), onError: (e: any) => toast.error(e.message || 'Błąd') })
   const [bill, setBill] = useState({ discount: '', tip: '', paymentMethod: 'CARD', splitCount: '1' })
   const close = useMutation({ mutationFn: ({ id, body }: any) => fetch(`/api/orders/${id}/close`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(jsonOk), onSuccess: () => { toast.success('Rachunek zamknięty — sprzedaż zapisana'); refresh(); onClose() } })
+  const move = useMutation({ mutationFn: ({ id, tableId }: any) => fetch(`/api/orders/${id}/move`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tableId }) }).then(jsonOk), onSuccess: (r: any) => { toast.success(r.mode === 'merge' ? 'Rachunki połączone' : 'Rachunek przeniesiony'); refresh(); onClose() }, onError: (e: any) => toast.error(e.message || 'Błąd') })
 
   const onPickProduct = (id: string) => {
     const p = (products || []).find((x: any) => x.id === id)
@@ -143,8 +146,14 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
   return (
     <Modal open onClose={onClose} title={`Stolik ${table.name}`} size="lg">
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button className="btn btn-ghost text-xs py-1.5" onClick={() => setShowHistory((s) => !s)}><History size={13} /> {showHistory ? 'Ukryj historię' : 'Historia'}</button>
+          {order?.id && otherTables.length > 0 && (
+            <select className="input text-xs py-1.5 w-auto" defaultValue="" disabled={move.isPending} onChange={(e) => { if (e.target.value) { move.mutate({ id: order.id, tableId: e.target.value }); e.target.value = '' } }}>
+              <option value="">Przenieś / połącz…</option>
+              {otherTables.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          )}
           {onDeleteTable && <button className="btn btn-ghost text-xs py-1.5 text-red-400" onClick={() => onDeleteTable(table.id)}><Trash2 size={13} /> Usuń stolik</button>}
         </div>
 
