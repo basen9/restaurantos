@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
+import { useT } from '@/components/i18n/I18nProvider'
 import {
   LayoutDashboard, Calendar, Clock, Umbrella, CheckSquare, ListTodo,
   Package, Trash2, AlertTriangle, Bell, MessageSquare, Bot, BarChart3,
@@ -11,16 +12,16 @@ import {
 
 const employeeNav = [
   { section: 'Główne', items: [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/dashboard', label: 'Dashboard', i18nKey: 'nav.dashboard', icon: LayoutDashboard },
     { href: '/schedule', label: 'Mój grafik', icon: Calendar },
     { href: '/time', label: 'Czas pracy', icon: Clock },
     { href: '/availability', label: 'Dostępność', icon: CalendarCheck },
     { href: '/vacation', label: 'Urlopy', icon: Umbrella },
   ]},
   { section: 'Praca', items: [
-    { href: '/floor', label: 'Plan sali', icon: LayoutGrid },
-    { href: '/kds', label: 'Ekran kuchni', icon: Flame },
-    { href: '/tasks', label: 'Zadania', icon: CheckSquare, badge: 'tasks' },
+    { href: '/floor', label: 'Plan sali', i18nKey: 'nav.floor', icon: LayoutGrid },
+    { href: '/kds', label: 'Ekran kuchni', i18nKey: 'nav.kds', icon: Flame },
+    { href: '/tasks', label: 'Zadania', i18nKey: 'nav.tasks', icon: CheckSquare, badge: 'tasks' },
     { href: '/checklists', label: 'Checklisty', icon: ListTodo },
     { href: '/sop', label: 'SOP / procedury', icon: BookOpen },
     { href: '/recipes', label: 'Przepisy', icon: ChefHat },
@@ -50,28 +51,28 @@ const ownerNav = [
   ]},
   { section: 'Zespół', items: [
     { href: '/owner/locations', label: 'Lokale', icon: MapPin },
-    { href: '/owner/employees', label: 'Pracownicy', icon: Users },
-    { href: '/owner/guests', label: 'Goście (CRM)', icon: Users },
-    { href: '/owner/campaigns', label: 'Kampanie', icon: MessageSquare },
+    { href: '/owner/employees', label: 'Pracownicy', i18nKey: 'nav.employees', icon: Users },
+    { href: '/owner/guests', label: 'Goście (CRM)', i18nKey: 'nav.guests', icon: Users },
+    { href: '/owner/campaigns', label: 'Kampanie', i18nKey: 'nav.campaigns', icon: MessageSquare },
     { href: '/owner/schedule', label: 'Grafiki', icon: Calendar },
-    { href: '/owner/payroll', label: 'Płace', icon: Banknote },
+    { href: '/owner/payroll', label: 'Płace', i18nKey: 'nav.payroll', icon: Banknote },
     { href: '/owner/tasks', label: 'Zadania', icon: CheckSquare },
     { href: '/owner/vacations', label: 'Urlopy', icon: Umbrella },
   ]},
   { section: 'Operacje', items: [
-    { href: '/owner/floor', label: 'Plan sali', icon: LayoutGrid },
-    { href: '/owner/reservations', label: 'Rezerwacje', icon: CalendarCheck },
-    { href: '/kds', label: 'Ekran kuchni', icon: Flame },
-    { href: '/owner/menu', label: 'Menu', icon: UtensilsCrossed },
-    { href: '/owner/cash', label: 'Kasa', icon: Banknote },
-    { href: '/owner/warehouse', label: 'Magazyn', icon: Warehouse },
+    { href: '/owner/floor', label: 'Plan sali', i18nKey: 'nav.floor', icon: LayoutGrid },
+    { href: '/owner/reservations', label: 'Rezerwacje', i18nKey: 'nav.reservations', icon: CalendarCheck },
+    { href: '/kds', label: 'Ekran kuchni', i18nKey: 'nav.kds', icon: Flame },
+    { href: '/owner/menu', label: 'Menu', i18nKey: 'nav.menu', icon: UtensilsCrossed },
+    { href: '/owner/cash', label: 'Kasa', i18nKey: 'nav.cash', icon: Banknote },
+    { href: '/owner/warehouse', label: 'Magazyn', i18nKey: 'nav.warehouse', icon: Warehouse },
     { href: '/owner/invoices', label: 'Faktury (OCR/KSeF)', icon: ScanLine },
     { href: '/owner/recipes', label: 'Receptury & food cost', icon: ChefHat },
     { href: '/sop', label: 'SOP / procedury', icon: BookOpen },
     { href: '/owner/waste', label: 'Straty', icon: Trash2 },
     { href: '/owner/incidents', label: 'Awarie', icon: AlertTriangle },
-    { href: '/owner/audit', label: 'Dziennik audytu', icon: FileSpreadsheet },
-    { href: '/owner/settings', label: 'Ustawienia', icon: Settings },
+    { href: '/owner/audit', label: 'Dziennik audytu', i18nKey: 'nav.audit', icon: FileSpreadsheet },
+    { href: '/owner/settings', label: 'Ustawienia', i18nKey: 'nav.settings', icon: Settings },
   ]},
   { section: 'Komunikacja', items: [
     { href: '/notifications', label: 'Powiadomienia', icon: Bell, badge: 'notifs' },
@@ -81,6 +82,7 @@ const ownerNav = [
 
 export function Sidebar({ notifCount = 0, taskCount = 0, alertCount = 0 }: { notifCount?: number; taskCount?: number; alertCount?: number }) {
   const pathname = usePathname()
+  const t = useT()
   const { data: session } = useSession()
   const role = (session?.user as any)?.role
   const isOwner = role === 'OWNER'
@@ -114,7 +116,7 @@ export function Sidebar({ notifCount = 0, taskCount = 0, alertCount = 0 }: { not
                   className={cn('flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all relative mb-0.5',
                     active ? 'nav-active' : 'text-[#9AAAB8] hover:text-[#E8ECF0] hover:bg-white/5')}>
                   <item.icon size={15} className="flex-shrink-0" />
-                  <span className="flex-1">{item.label}</span>
+                  <span className="flex-1">{(item as any).i18nKey ? t((item as any).i18nKey) : item.label}</span>
                   {count > 0 && (
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white">{count}</span>
                   )}
