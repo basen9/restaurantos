@@ -374,6 +374,18 @@ export const guestSchema = z.object({
 export const guestUpdateSchema = guestSchema.partial()
 export const assignGuestSchema = z.object({ guestId: z.string().min(1).nullable() })
 
+export const campaignSchema = z.object({
+  name: z.string().min(1).max(160),
+  channel: z.enum(['EMAIL', 'SMS', 'PUSH']).default('EMAIL'),
+  segment: z.object({
+    tag: z.string().max(40).optional(),
+    birthdayMonth: z.boolean().optional(),
+    minVisits: z.number().int().min(0).max(100000).optional(),
+  }).default({}),
+  subject: z.string().max(200).optional(),
+  message: z.string().min(1).max(2000),
+})
+
 export const recipeGuideSchema = z.object({
   instructions: z.string().max(8000).optional(),
   prepTimeMin: z.number().int().nonnegative().max(100000).optional(),
