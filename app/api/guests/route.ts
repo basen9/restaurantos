@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
-import { handle, requireAuth, parseBody, orgScope } from '@/lib/api'
+import { handle, requireAuth, parseBody, orgScope, ApiError } from '@/lib/api'
 import { guestSchema } from '@/lib/validation'
 import { audit } from '@/lib/audit'
 import { prisma } from '@/lib/prisma'
@@ -18,7 +18,13 @@ export const GET = handle(async (req) => {
 export const POST = handle(async (req) => {
   const user = await requireAuth()
   const data = parseBody(guestSchema, await req.json())
-  const guest = await prisma.guest.create({ data: { organizationId: user.organizationId, name: data.name, phone: data.phone, email: data.email || null, notes: data.notes } })
+  let guest
+  try {
+    guest = await prisma.guest.create({ data: { organizationId: user.organizationId, name: data.name, phone: data.phone, email: data.email ? data.email.toLowerCase() : null, notes: data.notes } })
+  } catch (e: any) {
+    if (e?.code === 'P2002') throw new ApiError(409, 'Gość z tym adresem e-mail już istnieje')
+    throw e
+  }
   await audit(user, 'guest.create', 'Guest', guest.id, { name: guest.name })
   return NextResponse.json(guest, { status: 201 })
 })

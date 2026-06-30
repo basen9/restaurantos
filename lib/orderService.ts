@@ -13,13 +13,14 @@ type U = Pick<AuthUser, 'id' | 'organizationId'>
 
 // Przypisanie/odpięcie gościa do otwartego rachunku.
 export async function assignGuest(user: U, orderId: string, guestId: string | null) {
-  const order = await prisma.tableOrder.findFirst({ where: { id: orderId, ...orgScope(user), status: 'OPEN' }, select: { id: true } })
-  if (!order) throw new ApiError(404, 'Otwarty rachunek nie istnieje')
   if (guestId) {
     const g = await prisma.guest.findFirst({ where: { id: guestId, ...orgScope(user) }, select: { id: true } })
     if (!g) throw new ApiError(400, 'Nieprawidłowy gość')
   }
-  return prisma.tableOrder.update({ where: { id: orderId }, data: { guestId } })
+  // Jeden zapis z guardem OPEN + org-scope (bez TOCTOU).
+  const res = await prisma.tableOrder.updateMany({ where: { id: orderId, ...orgScope(user), status: 'OPEN' }, data: { guestId } })
+  if (res.count === 0) throw new ApiError(404, 'Otwarty rachunek nie istnieje')
+  return prisma.tableOrder.findFirst({ where: { id: orderId, ...orgScope(user) } })
 }
 
 async function assertTable(user: U, tableId: string) {
@@ -196,7 +197,8 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
     // Lojalność: aktualizacja salda punktów (zużyte − naliczone), wizyt i wydatków gościa.
     if (guest && settings.loyaltyEnabled) {
       const earned = earnPoints(netTotal, settings.loyaltyPointsPerCurrency)
-      await tx.guest.update({ where: { id: guest.id }, data: { points: guest.points - redeemedPoints + earned, visits: { increment: 1 }, totalSpent: { increment: netTotal }, lastVisitAt: new Date() } })
+      // Atomowy increment (odporne na ewentualny refaktor odczytu poza transakcję).
+      await tx.guest.update({ where: { id: guest.id }, data: { points: { increment: earned - redeemedPoints }, visits: { increment: 1 }, totalSpent: { increment: netTotal }, lastVisitAt: new Date() } })
     }
     await tx.posConnection.upsert({
       where: { organizationId: user.organizationId },

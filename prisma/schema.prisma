@@ -1115,6 +1115,7 @@ model Guest {
   sales  Sale[]
   orders TableOrder[]
 
+  @@unique([organizationId, email])
   @@index([organizationId, name])
   @@index([organizationId, phone])
 }
