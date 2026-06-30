@@ -1,5 +1,5 @@
 // Czysta logika rozliczenia kasy — testowalna bez bazy.
-const round2 = (n: number) => Math.round(n * 100) / 100
+export const round2 = (n: number) => Math.round(n * 100) / 100
 
 export interface CashMovementLike { type: 'IN' | 'OUT'; amount: number }
 
