@@ -115,13 +115,13 @@ export function FloorBoard({ canManage }: { canManage: boolean }) {
 function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id: string; name: string }; canManage: boolean; onClose: () => void; onDeleteTable?: (id: string) => void }) {
   const qc = useQueryClient()
   const [showHistory, setShowHistory] = useState(false)
-  const [item, setItem] = useState({ productId: '', name: '', kind: 'FOOD', quantity: '1', unitPrice: '' })
+  const [item, setItem] = useState({ productId: '', name: '', notes: '', kind: 'FOOD', quantity: '1', unitPrice: '' })
   const { data: order, isLoading } = useQuery({ queryKey: ['order', table.id], queryFn: () => fetch(`/api/tables/${table.id}/order`).then((r) => r.json()), refetchInterval: 5000 })
-  const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: () => fetch('/api/products').then((r) => r.json()) })
+  const { data: products = [] } = useQuery({ queryKey: ['products', 'available'], queryFn: () => fetch('/api/products?availableOnly=1').then((r) => r.json()) })
   const { data: history = [] } = useQuery({ queryKey: ['order-history', table.id], queryFn: () => fetch(`/api/orders?tableId=${table.id}`).then((r) => r.json()), enabled: showHistory })
 
   const refresh = () => { qc.invalidateQueries({ queryKey: ['order', table.id] }); qc.invalidateQueries({ queryKey: ['floor'] }) }
-  const add = useMutation({ mutationFn: (body: any) => fetch(`/api/tables/${table.id}/order`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(jsonOk), onSuccess: () => { setItem({ productId: '', name: '', kind: 'FOOD', quantity: '1', unitPrice: '' }); refresh() } })
+  const add = useMutation({ mutationFn: (body: any) => fetch(`/api/tables/${table.id}/order`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(jsonOk), onSuccess: () => { setItem({ productId: '', name: '', notes: '', kind: 'FOOD', quantity: '1', unitPrice: '' }); refresh() } })
   const setStatus = useMutation({ mutationFn: ({ id, status }: any) => fetch(`/api/order-items/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) }).then(jsonOk), onSuccess: () => refresh() })
   const close = useMutation({ mutationFn: (id: string) => fetch(`/api/orders/${id}/close`, { method: 'POST' }).then(jsonOk), onSuccess: () => { toast.success('Rachunek zamknięty — sprzedaż zapisana'); refresh(); onClose() } })
 
@@ -131,7 +131,7 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
   }
   const submitItem = () => {
     if (!item.name.trim()) return
-    add.mutate({ items: [{ productId: item.productId || undefined, name: item.name.trim(), kind: item.kind, quantity: parseInt(item.quantity) || 1, unitPrice: parseFloat(item.unitPrice) || 0 }] })
+    add.mutate({ items: [{ productId: item.productId || undefined, name: item.name.trim(), notes: item.notes.trim() || undefined, kind: item.kind, quantity: parseInt(item.quantity) || 1, unitPrice: parseFloat(item.unitPrice) || 0 }] })
   }
 
   const items = order?.items || []
@@ -172,6 +172,7 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
                       {i.kind === 'DRINK' ? <Wine size={14} className="text-[#6B7A8D] flex-shrink-0" /> : <Utensils size={14} className="text-[#6B7A8D] flex-shrink-0" />}
                       <div className="flex-1 min-w-0">
                         <div className="text-sm text-[#E8ECF0] truncate">{i.quantity}× {i.name}</div>
+                        {i.notes && <div className="text-[11px] text-[#E8B923] truncate">⚑ {i.notes}</div>}
                         <div className="text-[11px] text-[#6B7A8D] flex items-center gap-1"><Clock size={10} /> {ageMin} min · {(i.quantity * i.unitPrice).toFixed(2)} zł</div>
                       </div>
                       <Badge variant={st.variant}>{st.label}</Badge>
@@ -196,6 +197,7 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
                   <option value="DRINK">Picie</option>
                 </select>
               </div>
+              <input className="input" placeholder="Modyfikatory / uwagi (np. bez cebuli)" value={item.notes} onChange={(e) => setItem((s) => ({ ...s, notes: e.target.value }))} />
               <div className="flex gap-2">
                 <input className="input w-20" type="number" min="1" placeholder="Ilość" value={item.quantity} onChange={(e) => setItem((s) => ({ ...s, quantity: e.target.value }))} />
                 <input className="input flex-1" type="number" step="0.01" placeholder="Cena szt. (zł)" value={item.unitPrice} onChange={(e) => setItem((s) => ({ ...s, unitPrice: e.target.value }))} />

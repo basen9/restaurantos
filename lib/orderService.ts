@@ -25,7 +25,7 @@ export async function getOpenOrder(user: U, tableId: string) {
 }
 
 // Dopisuje pozycje; otwiera rachunek, jeśli stolik go nie ma. Atomowo.
-export async function addItems(user: U, tableId: string, items: { productId?: string; name: string; kind: 'FOOD' | 'DRINK'; quantity: number; unitPrice: number }[]) {
+export async function addItems(user: U, tableId: string, items: { productId?: string; name: string; notes?: string; kind: 'FOOD' | 'DRINK'; quantity: number; unitPrice: number }[]) {
   await assertTable(user, tableId)
 
   // Walidacja, że podane productId należą do organizacji (denormalizujemy referencję).
@@ -40,7 +40,7 @@ export async function addItems(user: U, tableId: string, items: { productId?: st
     let o = await tx.tableOrder.findFirst({ where: { tableId, ...orgScope(user), status: 'OPEN' }, select: { id: true } })
     if (!o) o = await tx.tableOrder.create({ data: { organizationId: user.organizationId, tableId, openedById: user.id }, select: { id: true } })
     await tx.tableOrderItem.createMany({
-      data: items.map((i) => ({ orderId: o!.id, productId: i.productId && validIds.has(i.productId) ? i.productId : null, name: i.name, kind: i.kind, quantity: i.quantity, unitPrice: i.unitPrice })),
+      data: items.map((i) => ({ orderId: o!.id, productId: i.productId && validIds.has(i.productId) ? i.productId : null, name: i.name, notes: i.notes || null, kind: i.kind, quantity: i.quantity, unitPrice: i.unitPrice })),
     })
     const all = await tx.tableOrderItem.findMany({ where: { orderId: o.id } })
     await tx.tableOrder.update({ where: { id: o.id }, data: { total: orderTotal(all) } })
