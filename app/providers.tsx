@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@ta
 import { Toaster } from 'react-hot-toast'
 import toast from 'react-hot-toast'
 import { useState } from 'react'
+import { I18nProvider } from '@/components/i18n/I18nProvider'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Globalna siatka bezpieczeństwa: każdy błąd zapytania/mutacji, który zostanie rzucony,
@@ -20,12 +21,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <QueryClientProvider client={queryClient}>
-        {children}
-        <Toaster position="bottom-right" toastOptions={{
-          style: { background: '#1A1D27', color: '#E8ECF0', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px' },
-          success: { iconTheme: { primary: '#22C55E', secondary: '#1A1D27' } },
-          error: { iconTheme: { primary: '#EF4444', secondary: '#1A1D27' } },
-        }} />
+        <I18nProvider>
+          {children}
+          <Toaster position="bottom-right" toastOptions={{
+            style: { background: '#1A1D27', color: '#E8ECF0', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '10px' },
+            success: { iconTheme: { primary: '#22C55E', secondary: '#1A1D27' } },
+            error: { iconTheme: { primary: '#EF4444', secondary: '#1A1D27' } },
+          }} />
+        </I18nProvider>
       </QueryClientProvider>
     </SessionProvider>
   )
