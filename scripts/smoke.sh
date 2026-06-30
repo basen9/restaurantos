@@ -42,7 +42,7 @@ chk "OWNER GET /api/locations -> 200" 200 "$(code owner /api/locations)"
 chk "OWNER GET /api/floor -> 200" 200 "$(code owner /api/floor)"
 
 echo "== Strony OWNER (brak placeholderów) =="
-for p in /owner /owner/coo /owner/alerts /owner/analytics /owner/floor /owner/menu /owner/warehouse /owner/invoices /owner/recipes /owner/schedule /owner/locations /owner/reports /owner/employees /owner/tasks /owner/vacations /owner/waste /owner/incidents; do
+for p in /owner /owner/coo /owner/alerts /owner/analytics /owner/insights /owner/floor /owner/menu /owner/warehouse /owner/invoices /owner/recipes /owner/schedule /owner/locations /owner/reports /owner/employees /owner/tasks /owner/vacations /owner/waste /owner/incidents; do
   chk "OWNER $p -> 200" 200 "$(code owner $p)"
 done
 
