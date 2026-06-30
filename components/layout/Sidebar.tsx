@@ -45,7 +45,8 @@ const ownerNav = [
     { href: '/owner/coo', label: 'AI COO', icon: Bot },
     { href: '/owner/alerts', label: 'Alerty', icon: AlertTriangle, badge: 'alerts' },
     { href: '/owner/analytics', label: 'Analityka', icon: BarChart3 },
-    { href: '/owner/reports', label: 'Raporty', icon: FileSpreadsheet },
+    { href: '/owner/insights', label: 'Raporty sprzedaży', icon: BarChart3 },
+    { href: '/owner/reports', label: 'Eksport CSV', icon: FileSpreadsheet },
   ]},
   { section: 'Zespół', items: [
     { href: '/owner/locations', label: 'Lokale', icon: MapPin },
