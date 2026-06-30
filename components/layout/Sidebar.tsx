@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Calendar, Clock, Umbrella, CheckSquare, ListTodo,
   Package, Trash2, AlertTriangle, Bell, MessageSquare, Bot, BarChart3,
-  Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine, MapPin, BookOpen, CalendarCheck, FileSpreadsheet, LayoutGrid, UtensilsCrossed, Flame
+  Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine, MapPin, BookOpen, CalendarCheck, FileSpreadsheet, LayoutGrid, UtensilsCrossed, Flame, Banknote
 } from 'lucide-react'
 
 const employeeNav = [
@@ -59,6 +59,7 @@ const ownerNav = [
     { href: '/owner/floor', label: 'Plan sali', icon: LayoutGrid },
     { href: '/kds', label: 'Ekran kuchni', icon: Flame },
     { href: '/owner/menu', label: 'Menu', icon: UtensilsCrossed },
+    { href: '/owner/cash', label: 'Kasa', icon: Banknote },
     { href: '/owner/warehouse', label: 'Magazyn', icon: Warehouse },
     { href: '/owner/invoices', label: 'Faktury (OCR/KSeF)', icon: ScanLine },
     { href: '/owner/recipes', label: 'Receptury & food cost', icon: ChefHat },
