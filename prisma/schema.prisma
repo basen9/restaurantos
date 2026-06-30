@@ -721,6 +721,7 @@ model Sale {
   locationId     String?
 
   externalId String?    // id z systemu POS (idempotencja synchronizacji)
+  serverId   String?    // kelner obsługujący (z TableOrder.openedById) — atrybucja sprzedaży/napiwków
   soldAt     DateTime   @default(now())
   total      Float      @default(0) // przychód BRUTTO (po rabacie, BEZ napiwku) — do analityki
   subtotal   Float      @default(0) // wartość pozycji przed rabatem (brutto)
@@ -737,6 +738,7 @@ model Sale {
   @@index([organizationId, soldAt])
   @@index([organizationId, locationId, soldAt])
   @@index([organizationId, externalId])
+  @@index([organizationId, serverId, soldAt])
 }
 
 model SaleItem {

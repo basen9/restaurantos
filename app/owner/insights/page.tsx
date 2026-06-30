@@ -13,6 +13,7 @@ export default function InsightsPage() {
   const [days, setDays] = useState(30)
   const { data, isLoading } = useQuery({ queryKey: ['sales-report', days], queryFn: () => fetch(`/api/reports/sales?days=${days}`).then((r) => r.json()) })
   const { data: voids } = useQuery({ queryKey: ['voids', days], queryFn: () => fetch(`/api/reports/voids?days=${days}`).then((r) => r.json()) })
+  const { data: servers } = useQuery({ queryKey: ['servers', days], queryFn: () => fetch(`/api/reports/servers?days=${days}`).then((r) => r.json()) })
   if (isLoading) return <PageLoader />
   const r = data || {}
   const hasData = (r.transactions || 0) > 0
@@ -80,6 +81,23 @@ export default function InsightsPage() {
                   <div key={v.id} className="flex items-center justify-between text-xs">
                     <span className="text-[#9AAAB8] truncate">{v.quantity}× {v.name}{v.reason ? ` — ${v.reason}` : ''}</span>
                     <span className="text-red-400 flex-shrink-0">{v.amount} zł</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {servers && servers.rows?.length > 0 && (
+            <div className="card p-5 mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs font-semibold text-[#6B7A8D] uppercase tracking-widest">Wyniki kelnerów</div>
+                <Badge variant="gray">napiwki: {servers.tipModel === 'pooled' ? 'wspólna pula' : 'indywidualne'}</Badge>
+              </div>
+              <div className="space-y-1.5">
+                {servers.rows.map((r: any) => (
+                  <div key={r.serverId} className="flex items-center justify-between p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    <span className="text-sm text-[#E8ECF0] truncate">{r.name}</span>
+                    <span className="text-xs text-[#9AAAB8] flex-shrink-0">{r.sales} rach. · {r.revenue} zł · śr. {r.avgTicket} zł · napiwki {r.tips} zł</span>
                   </div>
                 ))}
               </div>

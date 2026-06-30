@@ -30,6 +30,7 @@ export const POST = handle(async (req) => {
     data: {
       organizationId: user.organizationId,
       locationId: user.locationId,
+      serverId: user.id,
       soldAt: data.soldAt || new Date(),
       total,
       source: 'MANUAL',

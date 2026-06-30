@@ -133,6 +133,7 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
       where: { id: orderId, ...orgScope(user) },
       include: { items: true, table: { select: { name: true, zone: { select: { locationId: true } } } } },
     })
+    // kelner = otwierający rachunek (fallback: zamykający)
     if (!order) throw new ApiError(404, 'Rachunek nie istnieje')
     if (order.status === 'CLOSED') return { sale: null, alreadyClosed: true, table: order.table?.name }
 
@@ -156,6 +157,7 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
     const sale = await tx.sale.create({
       data: {
         organizationId: user.organizationId, locationId, total: netTotal, subtotal, discount, vat, tip,
+        serverId: order.openedById ?? user.id,
         paymentMethod: opts.paymentMethod || null, splitCount, source: 'POS',
         items: { create: adjusted.map((i: any) => ({ productId: i.productId || null, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, total: i.adjGross, vatRate: i.vatRate })) },
       },
