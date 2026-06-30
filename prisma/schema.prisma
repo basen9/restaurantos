@@ -719,7 +719,12 @@ model Sale {
 
   externalId String?    // id z systemu POS (idempotencja synchronizacji)
   soldAt     DateTime   @default(now())
-  total      Float      @default(0)
+  total      Float      @default(0) // przychód NETTO (po rabacie, BEZ napiwku) — do analityki
+  subtotal   Float      @default(0) // wartość pozycji przed rabatem
+  discount   Float      @default(0) // udzielony rabat
+  tip        Float      @default(0) // napiwek (poza przychodem ze sprzedaży)
+  paymentMethod String? // CASH | CARD | BLIK | ONLINE | OTHER
+  splitCount Int        @default(1) // na ile osób podzielono rachunek
   source     SaleSource @default(MANUAL)
   createdAt  DateTime   @default(now())
 

@@ -123,7 +123,8 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
   const refresh = () => { qc.invalidateQueries({ queryKey: ['order', table.id] }); qc.invalidateQueries({ queryKey: ['floor'] }) }
   const add = useMutation({ mutationFn: (body: any) => fetch(`/api/tables/${table.id}/order`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(jsonOk), onSuccess: () => { setItem({ productId: '', name: '', notes: '', kind: 'FOOD', quantity: '1', unitPrice: '' }); refresh() } })
   const setStatus = useMutation({ mutationFn: ({ id, status }: any) => fetch(`/api/order-items/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) }).then(jsonOk), onSuccess: () => refresh() })
-  const close = useMutation({ mutationFn: (id: string) => fetch(`/api/orders/${id}/close`, { method: 'POST' }).then(jsonOk), onSuccess: () => { toast.success('Rachunek zamknięty — sprzedaż zapisana'); refresh(); onClose() } })
+  const [bill, setBill] = useState({ discount: '', tip: '', paymentMethod: 'CARD', splitCount: '1' })
+  const close = useMutation({ mutationFn: ({ id, body }: any) => fetch(`/api/orders/${id}/close`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(jsonOk), onSuccess: () => { toast.success('Rachunek zamknięty — sprzedaż zapisana'); refresh(); onClose() } })
 
   const onPickProduct = (id: string) => {
     const p = (products || []).find((x: any) => x.id === id)
@@ -205,9 +206,46 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
               </div>
             </div>
 
+            {/* Rozliczenie: rabat / napiwek / metoda / podział */}
+            {items.length > 0 && (
+              <div className="card p-3 space-y-2">
+                <div className="text-xs font-semibold text-[#9AAAB8] uppercase tracking-wider">Rozliczenie</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input className="input" type="number" step="0.01" placeholder="Rabat (zł)" value={bill.discount} onChange={(e) => setBill((s) => ({ ...s, discount: e.target.value }))} />
+                  <input className="input" type="number" step="0.01" placeholder="Napiwek (zł)" value={bill.tip} onChange={(e) => setBill((s) => ({ ...s, tip: e.target.value }))} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <select className="input" value={bill.paymentMethod} onChange={(e) => setBill((s) => ({ ...s, paymentMethod: e.target.value }))}>
+                    <option value="CASH">Gotówka</option>
+                    <option value="CARD">Karta</option>
+                    <option value="BLIK">BLIK</option>
+                    <option value="ONLINE">Online</option>
+                    <option value="OTHER">Inna</option>
+                  </select>
+                  <input className="input" type="number" min="1" placeholder="Podział (os.)" value={bill.splitCount} onChange={(e) => setBill((s) => ({ ...s, splitCount: e.target.value }))} />
+                </div>
+                {(() => {
+                  const disc = Math.min(parseFloat(bill.discount) || 0, total)
+                  const tip = parseFloat(bill.tip) || 0
+                  const net = Math.round((total - disc) * 100) / 100
+                  const split = Math.max(1, parseInt(bill.splitCount) || 1)
+                  return (
+                    <div className="text-xs text-[#6B7A8D] flex flex-wrap gap-x-4 gap-y-1">
+                      <span>Do zapłaty: <span className="text-[#E8ECF0]">{(net + tip).toFixed(2)} zł</span></span>
+                      <span>Przychód: <span className="text-[#E8ECF0]">{net.toFixed(2)} zł</span></span>
+                      {tip > 0 && <span>napiwek {tip.toFixed(2)} zł</span>}
+                      {split > 1 && <span>/ os.: <span className="text-[#E8ECF0]">{((net + tip) / split).toFixed(2)} zł</span></span>}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+
             <div className="flex items-center justify-between pt-2 border-t border-white/5">
-              <div className="text-sm text-[#6B7A8D]">Razem: <span className="text-lg font-display text-[#E8B923]">{total.toFixed(2)} zł</span></div>
-              <button className="btn btn-gold" disabled={!order?.id || items.length === 0 || close.isPending} onClick={() => order?.id && close.mutate(order.id)}><Receipt size={14} /> {close.isPending ? 'Zamykanie…' : 'Zamknij rachunek'}</button>
+              <div className="text-sm text-[#6B7A8D]">Suma pozycji: <span className="text-lg font-display text-[#E8B923]">{total.toFixed(2)} zł</span></div>
+              <button className="btn btn-gold" disabled={!order?.id || items.length === 0 || close.isPending}
+                onClick={() => order?.id && close.mutate({ id: order.id, body: { discount: parseFloat(bill.discount) || 0, tip: parseFloat(bill.tip) || 0, paymentMethod: bill.paymentMethod, splitCount: Math.max(1, parseInt(bill.splitCount) || 1) } })}>
+                <Receipt size={14} /> {close.isPending ? 'Zamykanie…' : 'Zamknij rachunek'}</button>
             </div>
           </>
         )}

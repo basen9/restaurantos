@@ -59,8 +59,11 @@ export async function setItemStatus(user: U, itemId: string, status: 'PENDING' |
   return updated
 }
 
+export interface CloseOpts { discount?: number; tip?: number; paymentMethod?: string; splitCount?: number }
+
 // Zamknięcie rachunku → utworzenie sprzedaży (przychód) + oznaczenie CLOSED. Idempotentne.
-export async function closeOrder(user: U & { locationId?: string | null }, orderId: string) {
+// Przychód (Sale.total) = NETTO po rabacie, BEZ napiwku — żeby analityka/food cost były poprawne.
+export async function closeOrder(user: U & { locationId?: string | null }, orderId: string, opts: CloseOpts = {}) {
   const order = await prisma.tableOrder.findFirst({
     where: { id: orderId, ...orgScope(user) },
     include: { items: true, table: { select: { name: true, zone: { select: { locationId: true } } } } },
@@ -69,20 +72,29 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
   if (order.status === 'CLOSED') return order
   if (order.items.length === 0) throw new ApiError(400, 'Pusty rachunek — dodaj pozycje przed zamknięciem')
 
-  const total = orderTotal(order.items)
+  const subtotal = orderTotal(order.items)
+  const discount = Math.min(round2(opts.discount || 0), subtotal) // rabat nie większy niż wartość rachunku
+  const tip = round2(opts.tip || 0)
+  const netTotal = round2(subtotal - discount) // przychód do analityki (bez napiwku)
+  const splitCount = opts.splitCount && opts.splitCount > 0 ? opts.splitCount : 1
   // Przychód przypisujemy do lokalu STOLIKA (strefy), nie zamykającego użytkownika.
   const locationId = order.table?.zone?.locationId ?? user.locationId ?? null
 
   const result = await prisma.$transaction(async (tx) => {
     // Atomowy guard: tylko jedno zamknięcie wygrywa.
-    const claimed = await tx.tableOrder.updateMany({ where: { id: order.id, status: 'OPEN' }, data: { status: 'CLOSED', closedAt: new Date(), total } })
+    const claimed = await tx.tableOrder.updateMany({ where: { id: order.id, status: 'OPEN' }, data: { status: 'CLOSED', closedAt: new Date(), total: netTotal } })
     if (claimed.count === 0) return null
 
     const sale = await tx.sale.create({
       data: {
         organizationId: user.organizationId,
         locationId,
-        total,
+        total: netTotal,
+        subtotal,
+        discount,
+        tip,
+        paymentMethod: opts.paymentMethod || null,
+        splitCount,
         source: 'POS',
         items: { create: order.items.map((i) => ({ productId: i.productId || null, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, total: round2(i.quantity * i.unitPrice) })) },
       },
@@ -97,6 +109,6 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
     return sale
   })
 
-  if (result) await audit(user, 'order.close', 'TableOrder', order.id, { total, saleId: result.id, table: order.table?.name })
+  if (result) await audit(user, 'order.close', 'TableOrder', order.id, { subtotal, discount, tip, total: netTotal, paymentMethod: opts.paymentMethod, saleId: result.id, table: order.table?.name })
   return prisma.tableOrder.findUnique({ where: { id: order.id }, include: { items: true } })
 }
