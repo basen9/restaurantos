@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Calendar, Clock, Umbrella, CheckSquare, ListTodo,
   Package, Trash2, AlertTriangle, Bell, MessageSquare, Bot, BarChart3,
-  Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine, MapPin, BookOpen, CalendarCheck, FileSpreadsheet, LayoutGrid, UtensilsCrossed
+  Users, Settings, ChevronRight, ChefHat, Warehouse, ScanLine, MapPin, BookOpen, CalendarCheck, FileSpreadsheet, LayoutGrid, UtensilsCrossed, Flame
 } from 'lucide-react'
 
 const employeeNav = [
@@ -19,6 +19,7 @@ const employeeNav = [
   ]},
   { section: 'Praca', items: [
     { href: '/floor', label: 'Plan sali', icon: LayoutGrid },
+    { href: '/kds', label: 'Ekran kuchni', icon: Flame },
     { href: '/tasks', label: 'Zadania', icon: CheckSquare, badge: 'tasks' },
     { href: '/checklists', label: 'Checklisty', icon: ListTodo },
     { href: '/sop', label: 'SOP / procedury', icon: BookOpen },
@@ -55,6 +56,7 @@ const ownerNav = [
   ]},
   { section: 'Operacje', items: [
     { href: '/owner/floor', label: 'Plan sali', icon: LayoutGrid },
+    { href: '/kds', label: 'Ekran kuchni', icon: Flame },
     { href: '/owner/menu', label: 'Menu', icon: UtensilsCrossed },
     { href: '/owner/warehouse', label: 'Magazyn', icon: Warehouse },
     { href: '/owner/invoices', label: 'Faktury (OCR/KSeF)', icon: ScanLine },
