@@ -536,7 +536,8 @@ model Product {
   category    String
   unit        String   @default("szt")
   costPerUnit Float    @default(0) // koszt jednostkowy (np. dla strat)
-  price       Float    @default(0) // cena sprzedaży (do food cost %)
+  price       Float    @default(0) // cena sprzedaży BRUTTO (do food cost %)
+  vatRate     Float    @default(8) // stawka VAT % (gastronomia PL zwykle 8, napoje 23, część 5)
   description String?  // opis pozycji w menu
   available   Boolean  @default(true) // "86" — czy dostępne do zamówienia teraz
   sortOrder   Int      @default(0)
@@ -719,9 +720,10 @@ model Sale {
 
   externalId String?    // id z systemu POS (idempotencja synchronizacji)
   soldAt     DateTime   @default(now())
-  total      Float      @default(0) // przychód NETTO (po rabacie, BEZ napiwku) — do analityki
-  subtotal   Float      @default(0) // wartość pozycji przed rabatem
+  total      Float      @default(0) // przychód BRUTTO (po rabacie, BEZ napiwku) — do analityki
+  subtotal   Float      @default(0) // wartość pozycji przed rabatem (brutto)
   discount   Float      @default(0) // udzielony rabat
+  vat        Float      @default(0) // kwota VAT zawarta w total
   tip        Float      @default(0) // napiwek (poza przychodem ze sprzedaży)
   paymentMethod String? // CASH | CARD | BLIK | ONLINE | OTHER
   splitCount Int        @default(1) // na ile osób podzielono rachunek
@@ -744,6 +746,7 @@ model SaleItem {
   quantity  Int     @default(1)
   unitPrice Float   @default(0)
   total     Float   @default(0)
+  vatRate   Float   @default(8) // stawka VAT % (do rozbicia podatku w raportach)
 
   @@index([saleId])
   @@index([productId])
@@ -979,7 +982,8 @@ model TableOrderItem {
   notes     String?  // modyfikatory / uwagi (np. "bez cebuli", "dobrze wysmażone")
   kind      OrderItemKind   @default(FOOD)
   quantity  Int      @default(1)
-  unitPrice Float    @default(0)
+  unitPrice Float    @default(0) // cena BRUTTO za sztukę
+  vatRate   Float    @default(8) // stawka VAT % (kopiowana z produktu przy dodaniu)
   status    OrderItemStatus @default(PENDING)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

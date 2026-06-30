@@ -229,10 +229,13 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
                   const tip = parseFloat(bill.tip) || 0
                   const net = Math.round((total - disc) * 100) / 100
                   const split = Math.max(1, parseInt(bill.splitCount) || 1)
+                  const factor = total > 0 ? net / total : 1
+                  const vat = Math.round(items.reduce((s: number, i: any) => { const g = i.quantity * i.unitPrice; const r = i.vatRate ?? 8; return s + (r > 0 ? (g * r) / (100 + r) : 0) }, 0) * factor * 100) / 100
                   return (
                     <div className="text-xs text-[#6B7A8D] flex flex-wrap gap-x-4 gap-y-1">
                       <span>Do zapłaty: <span className="text-[#E8ECF0]">{(net + tip).toFixed(2)} zł</span></span>
                       <span>Przychód: <span className="text-[#E8ECF0]">{net.toFixed(2)} zł</span></span>
+                      <span>w tym VAT: <span className="text-[#E8ECF0]">{vat.toFixed(2)} zł</span></span>
                       {tip > 0 && <span>napiwek {tip.toFixed(2)} zł</span>}
                       {split > 1 && <span>/ os.: <span className="text-[#E8ECF0]">{((net + tip) / split).toFixed(2)} zł</span></span>}
                     </div>

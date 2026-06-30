@@ -10,7 +10,7 @@ import { Plus, Pencil, UtensilsCrossed } from 'lucide-react'
 import { QrMenuCard } from '@/components/menu/QrMenuCard'
 
 const jsonOk = (r: Response) => { if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Błąd') }); return r.json() }
-const empty = { name: '', category: '', unit: 'szt', price: '', costPerUnit: '', description: '', available: true }
+const empty = { name: '', category: '', unit: 'szt', price: '', costPerUnit: '', vatRate: '8', description: '', available: true }
 
 export default function MenuPage() {
   const qc = useQueryClient()
@@ -60,7 +60,7 @@ export default function MenuPage() {
                     </div>
                     <div className="text-sm text-[#E8B923] font-semibold">{p.price?.toFixed ? p.price.toFixed(2) : p.price} zł</div>
                     <button className="btn btn-ghost py-1.5 px-2.5 text-xs" onClick={() => toggle86.mutate({ id: p.id, available: !p.available })}>{p.available ? 'Oznacz „86"' : 'Przywróć'}</button>
-                    <button aria-label="Edytuj" className="btn btn-ghost py-1.5 px-2" onClick={() => setEdit({ id: p.id, name: p.name, category: p.category, unit: p.unit, price: String(p.price ?? ''), costPerUnit: String(p.costPerUnit ?? ''), description: p.description || '', available: p.available })}><Pencil size={13} /></button>
+                    <button aria-label="Edytuj" className="btn btn-ghost py-1.5 px-2" onClick={() => setEdit({ id: p.id, name: p.name, category: p.category, unit: p.unit, price: String(p.price ?? ''), costPerUnit: String(p.costPerUnit ?? ''), vatRate: String(p.vatRate ?? '8'), description: p.description || '', available: p.available })}><Pencil size={13} /></button>
                   </div>
                 ))}
               </div>
@@ -77,14 +77,20 @@ export default function MenuPage() {
               <input className="input" placeholder="Kategoria" value={edit.category} onChange={(e) => setEdit((s: any) => ({ ...s, category: e.target.value }))} />
               <input className="input" placeholder="Jednostka (szt)" value={edit.unit} onChange={(e) => setEdit((s: any) => ({ ...s, unit: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <input className="input" type="number" step="0.01" placeholder="Cena (zł)" value={edit.price} onChange={(e) => setEdit((s: any) => ({ ...s, price: e.target.value }))} />
+            <div className="grid grid-cols-3 gap-2">
+              <input className="input" type="number" step="0.01" placeholder="Cena brutto (zł)" value={edit.price} onChange={(e) => setEdit((s: any) => ({ ...s, price: e.target.value }))} />
               <input className="input" type="number" step="0.01" placeholder="Koszt surowca (zł)" value={edit.costPerUnit} onChange={(e) => setEdit((s: any) => ({ ...s, costPerUnit: e.target.value }))} />
+              <select className="input" value={edit.vatRate} onChange={(e) => setEdit((s: any) => ({ ...s, vatRate: e.target.value }))}>
+                <option value="5">VAT 5%</option>
+                <option value="8">VAT 8%</option>
+                <option value="23">VAT 23%</option>
+                <option value="0">VAT 0%</option>
+              </select>
             </div>
             <textarea className="input" rows={2} placeholder="Opis (opcjonalnie)" value={edit.description} onChange={(e) => setEdit((s: any) => ({ ...s, description: e.target.value }))} />
             <label className="flex items-center gap-2 text-sm text-[#9AAAB8]"><input type="checkbox" checked={edit.available} onChange={(e) => setEdit((s: any) => ({ ...s, available: e.target.checked }))} /> Dostępne do zamówienia</label>
             <button className="btn btn-gold w-full" disabled={!edit.name || !edit.category || save.isPending}
-              onClick={() => save.mutate({ id: edit.id, name: edit.name, category: edit.category, unit: edit.unit || 'szt', price: parseFloat(edit.price) || 0, costPerUnit: parseFloat(edit.costPerUnit) || 0, description: edit.description || undefined, available: edit.available })}>
+              onClick={() => save.mutate({ id: edit.id, name: edit.name, category: edit.category, unit: edit.unit || 'szt', price: parseFloat(edit.price) || 0, costPerUnit: parseFloat(edit.costPerUnit) || 0, vatRate: parseFloat(edit.vatRate) || 0, description: edit.description || undefined, available: edit.available })}>
               {save.isPending ? 'Zapisywanie…' : 'Zapisz'}
             </button>
           </div>

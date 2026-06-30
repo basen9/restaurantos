@@ -269,6 +269,7 @@ export const productSchema = z.object({
   unit: z.string().min(1).max(20).default('szt'),
   price: z.number().nonnegative().default(0),
   costPerUnit: z.number().nonnegative().default(0),
+  vatRate: z.number().min(0).max(100).default(8),
   description: z.string().max(800).optional(),
   available: z.boolean().default(true),
 })
@@ -278,6 +279,7 @@ export const productUpdateSchema = z.object({
   unit: z.string().min(1).max(20).optional(),
   price: z.number().nonnegative().optional(),
   costPerUnit: z.number().nonnegative().optional(),
+  vatRate: z.number().min(0).max(100).optional(),
   description: z.string().max(800).optional(),
   available: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
