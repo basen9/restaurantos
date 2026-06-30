@@ -262,6 +262,11 @@ export const recipeSchema = z.object({
     .max(100),
 })
 
+// ===== Kasa / rozliczenie zmiany =====
+export const cashOpenSchema = z.object({ openingFloat: z.number().nonnegative().max(1000000).default(0), locationId: z.string().min(1).optional() })
+export const cashMovementSchema = z.object({ type: z.enum(['IN', 'OUT']), amount: z.number().positive().max(1000000), reason: z.string().max(200).optional() })
+export const cashCloseSchema = z.object({ countedCash: z.number().nonnegative().max(10000000), notes: z.string().max(500).optional() })
+
 // ===== Menu / produkty =====
 export const productSchema = z.object({
   name: z.string().min(1).max(160),

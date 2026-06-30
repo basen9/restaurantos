@@ -141,6 +141,7 @@ model Organization {
   zones              Zone[]
   restaurantTables   RestaurantTable[]
   tableOrders        TableOrder[]
+  cashSessions       CashSession[]
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -989,4 +990,57 @@ model TableOrderItem {
   updatedAt DateTime @updatedAt
 
   @@index([orderId])
+}
+
+// ===== Rozliczenie zmiany kasowej (cash drawer / Z-raport) =====
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum CashMovementType {
+  IN  // wpłata do kasy (np. rozmienienie)
+  OUT // wypłata z kasy (np. drop do sejfu, zaliczka, wydatek)
+}
+
+// Zmiana kasowa: otwarcie z bilonem początkowym, ruchy gotówkowe, zamknięcie z przeliczeniem.
+model CashSession {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  locationId     String?
+
+  status       CashSessionStatus @default(OPEN)
+  openingFloat Float    @default(0) // bilon początkowy
+  openedById   String?
+  openedAt     DateTime @default(now())
+
+  closedById  String?
+  closedAt    DateTime?
+  cashSales   Float?    // sprzedaż gotówkowa w czasie zmiany (wyliczona)
+  paidIn      Float?    // suma wpłat
+  paidOut     Float?    // suma wypłat
+  expectedCash Float?   // oczekiwana gotówka = bilon + sprzedaż + wpłaty − wypłaty
+  countedCash Float?    // policzona gotówka
+  variance    Float?    // countedCash − expectedCash (− niedobór / + nadwyżka)
+  notes       String?
+
+  movements CashMovement[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, openedAt])
+}
+
+model CashMovement {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   CashSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type      CashMovementType
+  amount    Float
+  reason    String?
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
 }
