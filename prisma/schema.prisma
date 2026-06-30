@@ -143,6 +143,7 @@ model Organization {
   restaurantTables   RestaurantTable[]
   tableOrders        TableOrder[]
   cashSessions       CashSession[]
+  reservations       Reservation[]
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -209,6 +210,7 @@ model Location {
   shifts    Shift[]
   schedules Schedule[]
   zones     Zone[]
+  reservations Reservation[]
 
   @@index([organizationId])
 }
@@ -948,6 +950,7 @@ model RestaurantTable {
   createdAt DateTime @default(now())
 
   orders TableOrder[]
+  reservations Reservation[]
 
   @@index([organizationId])
   @@index([zoneId])
@@ -1051,4 +1054,37 @@ model CashMovement {
   createdAt DateTime @default(now())
 
   @@index([sessionId])
+}
+
+// ===== Rezerwacje =====
+enum ReservationStatus {
+  PENDING    // oczekuje potwierdzenia
+  CONFIRMED  // potwierdzona
+  SEATED     // gość posadzony
+  CANCELLED  // anulowana
+  NO_SHOW    // nie pojawił się
+}
+
+model Reservation {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  locationId     String?
+  location       Location? @relation(fields: [locationId], references: [id])
+  tableId        String?
+  table          RestaurantTable? @relation(fields: [tableId], references: [id])
+
+  guestName   String
+  guestPhone  String?
+  partySize   Int      @default(2)
+  startsAt    DateTime
+  durationMin Int      @default(120)
+  status      ReservationStatus @default(CONFIRMED)
+  notes       String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([organizationId, startsAt])
+  @@index([tableId])
 }
