@@ -145,6 +145,7 @@ model Organization {
   cashSessions       CashSession[]
   reservations       Reservation[]
   guests             Guest[]
+  campaigns          Campaign[]
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1124,4 +1125,37 @@ model Guest {
   @@unique([organizationId, email])
   @@index([organizationId, name])
   @@index([organizationId, phone])
+}
+
+// ===== Kampanie CRM (e-mail / SMS / push) =====
+enum CampaignChannel {
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum CampaignStatus {
+  DRAFT
+  SENT
+}
+
+model Campaign {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  channel     CampaignChannel @default(EMAIL)
+  segment     Json     @default("{}") // kryteria segmentu (tag, birthdayMonth, minVisits)
+  subject     String?
+  message     String
+  status      CampaignStatus @default(DRAFT)
+  recipientCount Int   @default(0)
+  sentCount   Int      @default(0)
+  provider    String?  // dostawca użyty do wysyłki (mock / sendgrid / twilio ...)
+  sentAt      DateTime?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([organizationId, createdAt])
 }
