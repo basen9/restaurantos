@@ -9,7 +9,7 @@ import { prisma } from '@/lib/prisma'
 export const GET = handle(async () => {
   const user = await requireAuth()
   const items = await prisma.tableOrderItem.findMany({
-    where: { status: { in: ['PENDING', 'PREPARING', 'READY'] }, order: { ...orgScope(user), status: 'OPEN' } },
+    where: { status: { in: ['PENDING', 'PREPARING', 'READY'] }, voided: false, order: { ...orgScope(user), status: 'OPEN' } },
     include: { order: { select: { table: { select: { name: true, zone: { select: { name: true } } } } } } },
     orderBy: { createdAt: 'asc' },
     take: 300,

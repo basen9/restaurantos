@@ -58,11 +58,40 @@ export async function addItems(user: U, tableId: string, items: { productId?: st
 
 // Zmiana statusu pojedynczej pozycji (kuchnia/kelner). Weryfikuje przynależność do org.
 export async function setItemStatus(user: U, itemId: string, status: 'PENDING' | 'PREPARING' | 'READY' | 'SERVED') {
-  const item = await prisma.tableOrderItem.findFirst({ where: { id: itemId, order: { ...orgScope(user) } }, select: { id: true } })
+  const item = await prisma.tableOrderItem.findFirst({ where: { id: itemId, order: { ...orgScope(user) } }, select: { id: true, voided: true } })
   if (!item) throw new ApiError(404, 'Pozycja nie istnieje')
+  if (item.voided) throw new ApiError(400, 'Pozycja jest wystornowana')
   const updated = await prisma.tableOrderItem.update({ where: { id: itemId }, data: { status } })
   await audit(user, 'orderItem.status', 'TableOrderItem', itemId, { status })
   return updated
+}
+
+// Konflikt serializacji (równoległe storno + zamknięcie tego samego rachunku) → czytelny 409.
+async function serializable<T>(fn: (tx: any) => Promise<T>): Promise<T> {
+  try {
+    return await prisma.$transaction(fn, { isolationLevel: 'Serializable' })
+  } catch (e: any) {
+    if (e?.code === 'P2034') throw new ApiError(409, 'Konflikt równoległej operacji na rachunku — spróbuj ponownie.')
+    throw e
+  }
+}
+
+// Storno pozycji (loss prevention): oznacza jako voided + powód; aktualizuje sumę rachunku.
+// Nie usuwamy rekordu — zostaje do raportu storn. Wszystkie odczyty i sprawdzenie statusu
+// wewnątrz transakcji (Serializable), by storno nie trafiło na zamknięty rachunek.
+export async function voidItem(user: U, itemId: string, reason: string) {
+  const out = await serializable(async (tx) => {
+    const item = await tx.tableOrderItem.findFirst({ where: { id: itemId, order: { ...orgScope(user) } }, include: { order: { select: { id: true, status: true } } } })
+    if (!item) throw new ApiError(404, 'Pozycja nie istnieje')
+    if (item.order.status !== 'OPEN') throw new ApiError(400, 'Rachunek jest zamknięty')
+    if (item.voided) return { item, amount: 0, skipped: true }
+    const u = await tx.tableOrderItem.update({ where: { id: itemId }, data: { voided: true, voidReason: reason, voidedById: user.id, voidedAt: new Date() } })
+    const all = await tx.tableOrderItem.findMany({ where: { orderId: item.order.id } })
+    await tx.tableOrder.update({ where: { id: item.order.id }, data: { total: orderTotal(all) } })
+    return { item: u, amount: item.quantity * item.unitPrice, skipped: false }
+  })
+  if (!out.skipped) await audit(user, 'orderItem.void', 'TableOrderItem', itemId, { reason, amount: out.amount })
+  return out.item
 }
 
 export interface CloseOpts { discount?: number; tip?: number; paymentMethod?: string; splitCount?: number }
@@ -70,58 +99,49 @@ export interface CloseOpts { discount?: number; tip?: number; paymentMethod?: st
 // Zamknięcie rachunku → utworzenie sprzedaży (przychód) + oznaczenie CLOSED. Idempotentne.
 // Przychód (Sale.total) = NETTO po rabacie, BEZ napiwku — żeby analityka/food cost były poprawne.
 export async function closeOrder(user: U & { locationId?: string | null }, orderId: string, opts: CloseOpts = {}) {
-  const order = await prisma.tableOrder.findFirst({
-    where: { id: orderId, ...orgScope(user) },
-    include: { items: true, table: { select: { name: true, zone: { select: { locationId: true } } } } },
-  })
-  if (!order) throw new ApiError(404, 'Rachunek nie istnieje')
-  if (order.status === 'CLOSED') return order
-  if (order.items.length === 0) throw new ApiError(400, 'Pusty rachunek — dodaj pozycje przed zamknięciem')
+  // Wszystkie odczyty i obliczenia WEWNĄTRZ transakcji (Serializable) — koniec wyścigu
+  // storno↔zamknięcie: rachunek nie zafakturuje pozycji wystornowanej współbieżnie.
+  const result = await serializable(async (tx) => {
+    const order = await tx.tableOrder.findFirst({
+      where: { id: orderId, ...orgScope(user) },
+      include: { items: true, table: { select: { name: true, zone: { select: { locationId: true } } } } },
+    })
+    if (!order) throw new ApiError(404, 'Rachunek nie istnieje')
+    if (order.status === 'CLOSED') return { sale: null, alreadyClosed: true, table: order.table?.name }
 
-  const subtotal = orderTotal(order.items)
-  const discount = Math.min(round2(opts.discount || 0), subtotal) // rabat nie większy niż wartość rachunku
-  const tip = round2(opts.tip || 0)
-  const netTotal = round2(subtotal - discount) // przychód brutto do analityki (bez napiwku)
-  // Rabat rozkładamy proporcjonalnie na pozycje; zapisujemy brutto po rabacie na SaleItem,
-  // dzięki czemu VAT na Sale i rozbicie w raporcie liczone są z TYCH SAMYCH kwot (reconcile).
-  const discountFactor = subtotal > 0 ? netTotal / subtotal : 1
-  const adjusted = order.items.map((i) => ({ ...i, adjGross: round2(i.quantity * i.unitPrice * discountFactor) }))
-  const vat = totalVatGross(adjusted.map((i) => ({ gross: i.adjGross, vatRate: i.vatRate })))
-  const splitCount = opts.splitCount && opts.splitCount > 0 ? opts.splitCount : 1
-  // Przychód przypisujemy do lokalu STOLIKA (strefy), nie zamykającego użytkownika.
-  const locationId = order.table?.zone?.locationId ?? user.locationId ?? null
+    const liveItems = order.items.filter((i: any) => !i.voided) // storno poza rachunkiem
+    if (liveItems.length === 0) throw new ApiError(400, 'Pusty rachunek — dodaj pozycje przed zamknięciem')
 
-  const result = await prisma.$transaction(async (tx) => {
-    // Atomowy guard: tylko jedno zamknięcie wygrywa.
+    const subtotal = orderTotal(liveItems)
+    const discount = Math.min(round2(opts.discount || 0), subtotal) // rabat nie większy niż wartość rachunku
+    const tip = round2(opts.tip || 0)
+    const netTotal = round2(subtotal - discount) // przychód brutto do analityki (bez napiwku)
+    // Rabat rozkładamy proporcjonalnie na pozycje; brutto po rabacie na SaleItem → VAT i raport z tych samych kwot.
+    const discountFactor = subtotal > 0 ? netTotal / subtotal : 1
+    const adjusted = liveItems.map((i: any) => ({ ...i, adjGross: round2(i.quantity * i.unitPrice * discountFactor) }))
+    const vat = totalVatGross(adjusted.map((i: any) => ({ gross: i.adjGross, vatRate: i.vatRate })))
+    const splitCount = opts.splitCount && opts.splitCount > 0 ? opts.splitCount : 1
+    const locationId = order.table?.zone?.locationId ?? user.locationId ?? null
+
     const claimed = await tx.tableOrder.updateMany({ where: { id: order.id, status: 'OPEN' }, data: { status: 'CLOSED', closedAt: new Date(), total: netTotal } })
-    if (claimed.count === 0) return null
+    if (claimed.count === 0) return { sale: null, alreadyClosed: true, table: order.table?.name }
 
     const sale = await tx.sale.create({
       data: {
-        organizationId: user.organizationId,
-        locationId,
-        total: netTotal,
-        subtotal,
-        discount,
-        vat,
-        tip,
-        paymentMethod: opts.paymentMethod || null,
-        splitCount,
-        source: 'POS',
-        // total = brutto po rabacie (reconciluje z Sale.total i z rozbiciem VAT w raporcie).
-        items: { create: adjusted.map((i) => ({ productId: i.productId || null, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, total: i.adjGross, vatRate: i.vatRate })) },
+        organizationId: user.organizationId, locationId, total: netTotal, subtotal, discount, vat, tip,
+        paymentMethod: opts.paymentMethod || null, splitCount, source: 'POS',
+        items: { create: adjusted.map((i: any) => ({ productId: i.productId || null, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, total: i.adjGross, vatRate: i.vatRate })) },
       },
     })
     await tx.tableOrder.update({ where: { id: order.id }, data: { saleId: sale.id } })
-    // Oznacz POS jako połączone — bez tego analityka/AI COO/alerty pomijają przychód z sali.
     await tx.posConnection.upsert({
       where: { organizationId: user.organizationId },
       create: { organizationId: user.organizationId, provider: 'floor', connected: true, lastSyncAt: new Date() },
       update: { connected: true, lastSyncAt: new Date() },
     })
-    return sale
+    return { sale, alreadyClosed: false, table: order.table?.name }
   })
 
-  if (result) await audit(user, 'order.close', 'TableOrder', order.id, { subtotal, discount, tip, total: netTotal, paymentMethod: opts.paymentMethod, saleId: result.id, table: order.table?.name })
-  return prisma.tableOrder.findUnique({ where: { id: order.id }, include: { items: true } })
+  if (result.sale) await audit(user, 'order.close', 'TableOrder', orderId, { total: result.sale.total, saleId: result.sale.id, table: result.table })
+  return prisma.tableOrder.findFirst({ where: { id: orderId, ...orgScope(user) }, include: { items: true } })
 }

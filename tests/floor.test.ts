@@ -22,6 +22,18 @@ describe('floor helpers', () => {
   it('oldestUnservedMin = null gdy wszystko wydane', () => {
     expect(oldestUnservedMin([{ quantity: 1, unitPrice: 1, status: 'SERVED', createdAt: ago(5) }], now)).toBeNull()
   })
+  it('orderTotal i summarizeOrder pomijają pozycje wystornowane', () => {
+    const items = [
+      { quantity: 1, unitPrice: 100, status: 'SERVED', createdAt: ago(5) },
+      { quantity: 1, unitPrice: 50, status: 'PENDING', voided: true, createdAt: ago(3) },
+    ]
+    expect(orderTotal(items)).toBe(100)
+    const s = summarizeOrder(items, now)
+    expect(s.total).toBe(100)
+    expect(s.itemCount).toBe(1)
+    expect(s.pending).toBe(0)
+  })
+
   it('summarizeOrder zlicza pozycje i statusy', () => {
     const s = summarizeOrder([
       { quantity: 2, unitPrice: 10, status: 'PENDING', createdAt: ago(5) },

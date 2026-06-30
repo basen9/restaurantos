@@ -5,12 +5,14 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { PageLoader } from '@/components/ui/LoadingSpinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { StatCard } from '@/components/ui/StatCard'
+import { Badge } from '@/components/ui/Badge'
 
 const PAY_LABELS: Record<string, string> = { CASH: 'Gotówka', CARD: 'Karta', BLIK: 'BLIK', ONLINE: 'Online', OTHER: 'Inna', NIEZNANA: 'Nieznana' }
 
 export default function InsightsPage() {
   const [days, setDays] = useState(30)
   const { data, isLoading } = useQuery({ queryKey: ['sales-report', days], queryFn: () => fetch(`/api/reports/sales?days=${days}`).then((r) => r.json()) })
+  const { data: voids } = useQuery({ queryKey: ['voids', days], queryFn: () => fetch(`/api/reports/voids?days=${days}`).then((r) => r.json()) })
   if (isLoading) return <PageLoader />
   const r = data || {}
   const hasData = (r.transactions || 0) > 0
@@ -66,6 +68,23 @@ export default function InsightsPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+
+          {voids && voids.count > 0 && (
+            <div className="card p-5 mb-6" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs font-semibold text-[#6B7A8D] uppercase tracking-widest">Storna (kontrola strat)</div>
+                <Badge variant="red">{voids.count} szt · {voids.totalValue} zł</Badge>
+              </div>
+              <div className="space-y-1.5 max-h-44 overflow-y-auto">
+                {voids.rows.slice(0, 10).map((v: any) => (
+                  <div key={v.id} className="flex items-center justify-between text-xs">
+                    <span className="text-[#9AAAB8] truncate">{v.quantity}× {v.name}{v.reason ? ` — ${v.reason}` : ''}</span>
+                    <span className="text-red-400 flex-shrink-0">{v.amount} zł</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="card p-5">

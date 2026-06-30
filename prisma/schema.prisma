@@ -987,10 +987,15 @@ model TableOrderItem {
   unitPrice Float    @default(0) // cena BRUTTO za sztukę
   vatRate   Float    @default(8) // stawka VAT % (kopiowana z produktu przy dodaniu)
   status    OrderItemStatus @default(PENDING)
+  voided     Boolean  @default(false) // storno — pozycja anulowana, poza rachunkiem
+  voidReason String?
+  voidedById String?
+  voidedAt   DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([orderId])
+  @@index([voidedAt])
 }
 
 // ===== Rozliczenie zmiany kasowej (cash drawer / Z-raport) =====

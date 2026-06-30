@@ -123,6 +123,7 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
   const refresh = () => { qc.invalidateQueries({ queryKey: ['order', table.id] }); qc.invalidateQueries({ queryKey: ['floor'] }) }
   const add = useMutation({ mutationFn: (body: any) => fetch(`/api/tables/${table.id}/order`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(jsonOk), onSuccess: () => { setItem({ productId: '', name: '', notes: '', kind: 'FOOD', quantity: '1', unitPrice: '' }); refresh() } })
   const setStatus = useMutation({ mutationFn: ({ id, status }: any) => fetch(`/api/order-items/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) }).then(jsonOk), onSuccess: () => refresh() })
+  const voidItem = useMutation({ mutationFn: ({ id, reason }: any) => fetch(`/api/order-items/${id}/void`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) }).then(jsonOk), onSuccess: () => refresh(), onError: (e: any) => toast.error(e.message || 'Błąd') })
   const [bill, setBill] = useState({ discount: '', tip: '', paymentMethod: 'CARD', splitCount: '1' })
   const close = useMutation({ mutationFn: ({ id, body }: any) => fetch(`/api/orders/${id}/close`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(jsonOk), onSuccess: () => { toast.success('Rachunek zamknięty — sprzedaż zapisana'); refresh(); onClose() } })
 
@@ -136,7 +137,7 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
   }
 
   const items = order?.items || []
-  const total = Math.round(items.reduce((s: number, i: any) => s + i.quantity * i.unitPrice, 0) * 100) / 100
+  const total = Math.round(items.filter((i: any) => !i.voided).reduce((s: number, i: any) => s + i.quantity * i.unitPrice, 0) * 100) / 100
   const now = Date.now()
 
   return (
@@ -168,6 +169,12 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
                 {items.map((i: any) => {
                   const st = STATUS[i.status]
                   const ageMin = Math.floor((now - new Date(i.createdAt).getTime()) / 60000)
+                  if (i.voided) return (
+                    <div key={i.id} className="flex items-center gap-2 p-2 rounded-lg opacity-50" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                      <div className="flex-1 min-w-0"><div className="text-sm text-[#6B7A8D] truncate line-through">{i.quantity}× {i.name}</div>{i.voidReason && <div className="text-[11px] text-[#6B7A8D] truncate">storno: {i.voidReason}</div>}</div>
+                      <Badge variant="red">STORNO</Badge>
+                    </div>
+                  )
                   return (
                     <div key={i.id} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
                       {i.kind === 'DRINK' ? <Wine size={14} className="text-[#6B7A8D] flex-shrink-0" /> : <Utensils size={14} className="text-[#6B7A8D] flex-shrink-0" />}
@@ -178,6 +185,7 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
                       </div>
                       <Badge variant={st.variant}>{st.label}</Badge>
                       {st.next && <button className="btn btn-ghost text-[11px] py-1 px-2" disabled={setStatus.isPending} onClick={() => setStatus.mutate({ id: i.id, status: st.next })}>→ {STATUS[st.next].label}</button>}
+                      <button aria-label="Storno" className="btn btn-ghost text-[11px] py-1 px-2 text-red-400" disabled={voidItem.isPending} onClick={() => { const reason = prompt('Powód storna:'); if (reason && reason.trim()) voidItem.mutate({ id: i.id, reason: reason.trim() }) }}>Storno</button>
                     </div>
                   )
                 })}
@@ -230,7 +238,7 @@ function OrderPanel({ table, canManage, onClose, onDeleteTable }: { table: { id:
                   const net = Math.round((total - disc) * 100) / 100
                   const split = Math.max(1, parseInt(bill.splitCount) || 1)
                   const factor = total > 0 ? net / total : 1
-                  const vat = Math.round(items.reduce((s: number, i: any) => { const g = i.quantity * i.unitPrice; const r = i.vatRate ?? 8; return s + (r > 0 ? (g * r) / (100 + r) : 0) }, 0) * factor * 100) / 100
+                  const vat = Math.round(items.filter((i: any) => !i.voided).reduce((s: number, i: any) => { const g = i.quantity * i.unitPrice; const r = i.vatRate ?? 8; return s + (r > 0 ? (g * r) / (100 + r) : 0) }, 0) * factor * 100) / 100
                   return (
                     <div className="text-xs text-[#6B7A8D] flex flex-wrap gap-x-4 gap-y-1">
                       <span>Do zapłaty: <span className="text-[#E8ECF0]">{(net + tip).toFixed(2)} zł</span></span>
