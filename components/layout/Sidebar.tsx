@@ -58,6 +58,7 @@ const ownerNav = [
   ]},
   { section: 'Operacje', items: [
     { href: '/owner/floor', label: 'Plan sali', icon: LayoutGrid },
+    { href: '/owner/reservations', label: 'Rezerwacje', icon: CalendarCheck },
     { href: '/kds', label: 'Ekran kuchni', icon: Flame },
     { href: '/owner/menu', label: 'Menu', icon: UtensilsCrossed },
     { href: '/owner/cash', label: 'Kasa', icon: Banknote },

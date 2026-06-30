@@ -262,6 +262,28 @@ export const recipeSchema = z.object({
     .max(100),
 })
 
+// ===== Rezerwacje =====
+export const reservationSchema = z.object({
+  guestName: z.string().min(1).max(160),
+  guestPhone: z.string().max(40).optional(),
+  partySize: z.number().int().min(1).max(200).default(2),
+  startsAt: z.coerce.date(),
+  durationMin: z.number().int().min(15).max(1440).default(120),
+  tableId: z.string().min(1).optional(),
+  locationId: z.string().min(1).optional(),
+  notes: z.string().max(500).optional(),
+})
+export const reservationUpdateSchema = z.object({
+  status: z.enum(['PENDING', 'CONFIRMED', 'SEATED', 'CANCELLED', 'NO_SHOW']).optional(),
+  guestName: z.string().min(1).max(160).optional(),
+  guestPhone: z.string().max(40).optional(),
+  partySize: z.number().int().min(1).max(200).optional(),
+  startsAt: z.coerce.date().optional(),
+  durationMin: z.number().int().min(15).max(1440).optional(),
+  tableId: z.string().min(1).nullable().optional(),
+  notes: z.string().max(500).optional(),
+})
+
 // ===== Ustawienia organizacji =====
 export const settingsSchema = z.object({
   currency: z.string().min(1).max(8).optional(),
