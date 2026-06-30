@@ -300,6 +300,12 @@ export const orderAddItemsSchema = z.object({
   })).min(1).max(100),
 })
 export const orderItemStatusSchema = z.object({ status: z.enum(['PENDING', 'PREPARING', 'READY', 'SERVED']) })
+export const closeOrderSchema = z.object({
+  discount: z.number().nonnegative().default(0),
+  tip: z.number().nonnegative().default(0),
+  paymentMethod: z.enum(['CASH', 'CARD', 'BLIK', 'ONLINE', 'OTHER']).optional(),
+  splitCount: z.number().int().min(1).max(100).default(1),
+})
 
 export const recipeGuideSchema = z.object({
   instructions: z.string().max(8000).optional(),
