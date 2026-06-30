@@ -94,6 +94,33 @@ export async function voidItem(user: U, itemId: string, reason: string) {
   return out.item
 }
 
+// Przeniesienie rachunku na inny stolik; jeśli docelowy ma otwarty rachunek — łączenie.
+// Wszystko w transakcji Serializable (spójność przy współbieżnej obsłudze).
+export async function moveOrder(user: U, orderId: string, targetTableId: string) {
+  const out = await serializable(async (tx) => {
+    const order = await tx.tableOrder.findFirst({ where: { id: orderId, ...orgScope(user), status: 'OPEN' }, include: { items: { select: { id: true } } } })
+    if (!order) throw new ApiError(404, 'Otwarty rachunek nie istnieje')
+    const target = await tx.restaurantTable.findFirst({ where: { id: targetTableId, ...orgScope(user) }, select: { id: true } })
+    if (!target) throw new ApiError(400, 'Nieprawidłowy stolik docelowy')
+    if (target.id === order.tableId) return { mode: 'noop' as const, orderId }
+
+    const targetOpen = await tx.tableOrder.findFirst({ where: { tableId: target.id, ...orgScope(user), status: 'OPEN' }, include: { items: true } })
+    if (!targetOpen) {
+      // Transfer — przepinamy rachunek na wolny stolik.
+      await tx.tableOrder.update({ where: { id: order.id }, data: { tableId: target.id } })
+      return { mode: 'transfer' as const, orderId: order.id }
+    }
+    // Łączenie — przenosimy wszystkie pozycje (w tym storna) do rachunku docelowego, kasujemy źródłowy.
+    await tx.tableOrderItem.updateMany({ where: { orderId: order.id }, data: { orderId: targetOpen.id } })
+    const all = await tx.tableOrderItem.findMany({ where: { orderId: targetOpen.id } })
+    await tx.tableOrder.update({ where: { id: targetOpen.id }, data: { total: orderTotal(all) } })
+    await tx.tableOrder.delete({ where: { id: order.id } })
+    return { mode: 'merge' as const, orderId: targetOpen.id }
+  })
+  await audit(user, `order.${out.mode}`, 'TableOrder', orderId, { targetTableId, resultOrderId: out.orderId })
+  return out
+}
+
 export interface CloseOpts { discount?: number; tip?: number; paymentMethod?: string; splitCount?: number }
 
 // Zamknięcie rachunku → utworzenie sprzedaży (przychód) + oznaczenie CLOSED. Idempotentne.
