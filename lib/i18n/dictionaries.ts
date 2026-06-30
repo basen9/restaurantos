@@ -41,6 +41,7 @@ const pl: Dict = {
   'nav.alerts': 'Alerty',
   'nav.employees': 'Pracownicy',
   'nav.audit': 'Dziennik audytu',
+  'nav.security': 'Bezpieczeństwo (2FA)',
 }
 
 const en: Dict = {
@@ -73,6 +74,7 @@ const en: Dict = {
   'nav.alerts': 'Alerts',
   'nav.employees': 'Employees',
   'nav.audit': 'Audit log',
+  'nav.security': 'Security (2FA)',
 }
 
 export const dictionaries: Record<Lang, Dict> = { pl, en }

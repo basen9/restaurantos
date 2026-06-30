@@ -171,6 +171,17 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Uwierzytelnianie dwuskładnikowe (TOTP). Sekret bazowy (base32) zapisywany dopiero
+  // po potwierdzeniu kodem; pendingSecret służy do enrollmentu, zanim 2FA zostanie
+  // aktywowane. Kody odzyskiwania to skróty bcrypt (jednorazowe).
+  twoFactorEnabled       Boolean  @default(false)
+  twoFactorSecret        String?
+  twoFactorPendingSecret String?
+  twoFactorRecoveryCodes String[] @default([])
+  // Ostatni zaakceptowany krok czasowy TOTP — blokuje powtórne użycie tego samego
+  // kodu w jego oknie ważności (ochrona przed replay; RFC 6238 §5.2).
+  twoFactorLastStep      BigInt   @default(0)
+
   locationId String?
   location   Location? @relation(fields: [locationId], references: [id])
 
