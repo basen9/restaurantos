@@ -17,6 +17,7 @@ export const PERMISSIONS = {
   VIEW_ALL_WASTE: 'waste.view_all',
   MANAGE_ORDERS: 'orders.manage', // zamykanie rachunków (tworzy sprzedaż)
   MANAGE_CASH: 'cash.manage', // rozliczenie zmiany kasowej
+  MANAGE_DISCOUNTS: 'discounts.manage', // pełne storno/comp i rabaty bez limitu (manager)
   MANAGE_ORG: 'org.manage',
 } as const
 
@@ -40,6 +41,7 @@ export const PERMISSION_BUNDLES = {
     PERMISSIONS.VIEW_ALL_WASTE,
     PERMISSIONS.MANAGE_ORDERS,
     PERMISSIONS.MANAGE_CASH,
+    PERMISSIONS.MANAGE_DISCOUNTS,
   ],
   ACCOUNTANT: [PERMISSIONS.VIEW_ANALYTICS, PERMISSIONS.VIEW_FINANCE],
   STOCK_KEEPER: [PERMISSIONS.MANAGE_INVENTORY, PERMISSIONS.MANAGE_PRODUCTS],

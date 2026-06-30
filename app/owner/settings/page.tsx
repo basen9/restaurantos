@@ -39,7 +39,19 @@ export default function SettingsPage() {
         <div className="text-xs font-semibold text-[#6B7A8D] uppercase tracking-widest mb-1">Sprzedaż i podatki</div>
         <Row label="Waluta"><input className="input w-24 text-right" value={s.currency} onChange={(e) => setS((p: any) => ({ ...p, currency: e.target.value }))} /></Row>
         <Row label="Domyślny VAT (%)" hint="dla nowych pozycji menu"><input className="input w-24 text-right" type="number" value={s.defaultVatRate} onChange={num('defaultVatRate')} /></Row>
-        <Row label="Opłata serwisowa (%)" hint="0 = wyłączona"><input className="input w-24 text-right" type="number" value={s.serviceChargePct} onChange={num('serviceChargePct')} /></Row>
+      </div>
+
+      <div className="card p-5 mb-4">
+        <div className="text-xs font-semibold text-[#6B7A8D] uppercase tracking-widest mb-1">Opłata serwisowa</div>
+        <Row label="Włączona"><input type="checkbox" checked={s.serviceChargeEnabled} onChange={bool('serviceChargeEnabled')} /></Row>
+        <Row label="Typ">
+          <select className="input" value={s.serviceChargeType} onChange={(e) => setS((p: any) => ({ ...p, serviceChargeType: e.target.value }))}>
+            <option value="PERCENT">Procent (%)</option>
+            <option value="AMOUNT">Kwota (zł)</option>
+          </select>
+        </Row>
+        <Row label="Wartość" hint="procent lub kwota wg typu"><input className="input w-24 text-right" type="number" value={s.serviceChargeValue} onChange={num('serviceChargeValue')} /></Row>
+        <Row label="VAT opłaty (%)"><input className="input w-24 text-right" type="number" value={s.serviceChargeVatRate} onChange={num('serviceChargeVatRate')} /></Row>
       </div>
 
       <div className="card p-5 mb-4">
@@ -55,7 +67,8 @@ export default function SettingsPage() {
 
       <div className="card p-5 mb-4">
         <div className="text-xs font-semibold text-[#6B7A8D] uppercase tracking-widest mb-1">Obsługa i kontrola</div>
-        <Row label="Storno wymaga managera" hint="anulowanie pozycji tylko z uprawnieniem"><input type="checkbox" checked={s.voidRequiresManager} onChange={bool('voidRequiresManager')} /></Row>
+        <Row label="Storno wymaga managera" hint="pełne storno/comp tylko z uprawnieniem managera"><input type="checkbox" checked={s.voidRequiresManager} onChange={bool('voidRequiresManager')} /></Row>
+        <Row label="Limit rabatu kelnera (%)" hint="0 = kelner bez rabatów; powyżej wymaga managera"><input className="input w-24 text-right" type="number" value={s.waiterDiscountLimitPct} onChange={num('waiterDiscountLimitPct')} /></Row>
         <Row label="Próg wolnej obsługi (min)"><input className="input w-24 text-right" type="number" value={s.slowServiceMinutes} onChange={num('slowServiceMinutes')} /></Row>
         <Row label="Rezerwacje włączone"><input type="checkbox" checked={s.reservationsEnabled} onChange={bool('reservationsEnabled')} /></Row>
       </div>
