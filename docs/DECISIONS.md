@@ -38,6 +38,19 @@ praktykami światowych POS, zawsze **konfigurowalne z panelu** (bez zmian w kodz
   możliwości wyłączenia oraz wskaźnik na ekranie bezpieczeństwa. Twardy gate „zaloguj → najpierw skonfiguruj 2FA"
   pozostaje do dodania jako rozszerzenie (middleware), jeśli właściciel będzie tego wymagał.
 - **Audyt:** `2fa.enable` / `2fa.disable` zapisywane w `AuditLog`.
+- **Hardening (po audycie bezpieczeństwa):**
+  - **Ochrona przed replay:** akceptowany krok czasowy TOTP jest zapisywany (`twoFactorLastStep`);
+    powtórne użycie tego samego kodu w jego oknie ważności jest odrzucane (RFC 6238 §5.2). Zapis
+    kroku jest **atomowy** (`updateMany` z warunkiem `lastStep < step`), więc równoległe próby z tym
+    samym kodem nie przejdą dwukrotnie.
+  - **Jednorazowość kodów odzyskiwania:** konsumpcja przez **atomowy** `updateMany` z warunkiem
+    `has: <hash>` — eliminuje wyścig (TOCTOU) pozwalający na ponowne użycie kodu przy równoległych żądaniach.
+  - **base32:** dekoder odrzuca znaki spoza alfabetu (brak cichego pomijania), a błąd dekodowania
+    sekretu skutkuje brakiem dopasowania (fail-closed).
+  - **Normalizacja e-mail:** logowanie i klucz rate-limitu używają tej samej, małej formy adresu.
+  - **Znane ograniczenie:** throttling logowania jest in-memory (per-proces). W środowisku
+    wieloinstancyjnym należy przenieść go do współdzielonego magazynu (Redis) — wymaga infrastruktury
+    zewnętrznej, więc poza zakresem bieżącej implementacji.
 
 ## CRM / kampanie
 - Pełny profil gościa: notatki, preferencje, alergeny, urodziny, historia wizyt, punkty, segmenty (tagi).

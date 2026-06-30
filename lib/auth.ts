@@ -3,7 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
 import { rateLimit } from './ratelimit'
-import { verifyTOTP } from './totp'
+import { verifyTOTPStep } from './totp'
 
 // Fail-fast: na produkcji odrzucamy brak / placeholder / zbyt krótki sekret JWT.
 // Słaby sekret = możliwość podrobienia sesji. Pomijamy fazę builda (next build ustawia
@@ -29,8 +29,10 @@ export const authOptions: NextAuthOptions = {
         // Throttling logowania (per e-mail) — ogranicza brute-force / credential stuffing.
         // Najlepszy efekt po przeniesieniu do Redis (multi-instancja); in-memory = per-proces.
         if (!rateLimit(`login:${credentials.email.toLowerCase()}`, 10, 15 * 60 * 1000).ok) return null
+        // E-mail normalizujemy do małych liter — spójnie z kluczem rate-limitu i z zapisem w bazie.
+        const email = credentials.email.toLowerCase()
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email },
           include: { location: true, organization: true },
         })
         if (!user || !user.isActive) return null
@@ -44,22 +46,34 @@ export const authOptions: NextAuthOptions = {
         if (user.twoFactorEnabled && user.twoFactorSecret) {
           const token = (credentials.token || '').trim()
           if (!token) throw new Error('2FA_REQUIRED')
-          const totpOk = verifyTOTP(user.twoFactorSecret, token, Date.now())
-          let recoveryOk = false
-          if (!totpOk && user.twoFactorRecoveryCodes.length > 0) {
+
+          // 1) TOTP: weryfikacja + ochrona przed replay. Krok musi być nowszy niż ostatnio
+          //    zaakceptowany, a zapis jest atomowy (updateMany z warunkiem na lastStep),
+          //    więc równoległe próby z tym samym kodem nie przejdą dwukrotnie.
+          const step = verifyTOTPStep(user.twoFactorSecret, token, Date.now())
+          if (step !== null) {
+            if (BigInt(step) <= user.twoFactorLastStep) throw new Error('2FA_INVALID')
+            const r = await prisma.user.updateMany({
+              where: { id: user.id, twoFactorLastStep: { lt: BigInt(step) } },
+              data: { twoFactorLastStep: BigInt(step) },
+            })
+            if (r.count === 0) throw new Error('2FA_INVALID') // wyścig: krok już zużyty
+          } else {
+            // 2) Kod odzyskiwania (jednorazowy). Znajdź pasujący skrót, a następnie usuń go
+            //    atomowo — updateMany z warunkiem `has: matched` gwarantuje pojedyncze użycie
+            //    nawet przy równoległych żądaniach (drugie nie spełni warunku WHERE).
+            let matched: string | null = null
             for (const h of user.twoFactorRecoveryCodes) {
-              if (await bcrypt.compare(token, h)) { recoveryOk = true; break }
+              if (await bcrypt.compare(token, h)) { matched = h; break }
             }
-            if (recoveryOk) {
-              // Kod odzyskiwania jest jednorazowy — usuwamy zużyty skrót.
-              const remaining: string[] = []
-              for (const h of user.twoFactorRecoveryCodes) {
-                if (!(await bcrypt.compare(token, h))) remaining.push(h)
-              }
-              await prisma.user.update({ where: { id: user.id }, data: { twoFactorRecoveryCodes: remaining } })
-            }
+            if (!matched) throw new Error('2FA_INVALID')
+            const remaining = user.twoFactorRecoveryCodes.filter((h) => h !== matched)
+            const r = await prisma.user.updateMany({
+              where: { id: user.id, twoFactorRecoveryCodes: { has: matched } },
+              data: { twoFactorRecoveryCodes: { set: remaining } },
+            })
+            if (r.count === 0) throw new Error('2FA_INVALID') // wyścig: kod już zużyty
           }
-          if (!totpOk && !recoveryOk) throw new Error('2FA_INVALID')
         }
         return {
           id: user.id,

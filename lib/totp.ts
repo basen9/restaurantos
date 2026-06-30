@@ -30,7 +30,7 @@ export function base32Decode(input: string): Buffer {
   const out: number[] = []
   for (const ch of clean) {
     const idx = BASE32_ALPHABET.indexOf(ch)
-    if (idx === -1) continue // pomijamy nieznane znaki (myślniki, spacje)
+    if (idx === -1) throw new Error('Nieprawidłowy znak base32') // brak cichego pomijania
     value = (value << 5) | idx
     bits += 5
     if (bits >= 8) {
@@ -69,19 +69,29 @@ export function generateTOTP(secret: string, nowMs: number): string {
 }
 
 // Weryfikacja kodu z tolerancją ±`window` kroków (domyślnie ±1 = ±30 s),
-// co kompensuje dryf zegara. Porównanie w stałym czasie.
-export function verifyTOTP(secret: string, token: string, nowMs: number, window = 1): boolean {
-  if (!secret || !token) return false
+// co kompensuje dryf zegara. Zwraca dopasowany krok czasowy (do ochrony przed
+// replay) albo null. Porównanie w stałym czasie. Błąd dekodowania sekretu = brak dopasowania.
+export function verifyTOTPStep(secret: string, token: string, nowMs: number, window = 1): number | null {
+  if (!secret || !token) return null
   const normalized = token.replace(/\s/g, '')
-  if (!/^\d{6}$/.test(normalized)) return false
+  if (!/^\d{6}$/.test(normalized)) return null
   const counter = Math.floor(nowMs / 1000 / PERIOD)
-  for (let i = -window; i <= window; i++) {
-    const candidate = hotp(secret, counter + i)
-    const a = Buffer.from(candidate)
-    const b = Buffer.from(normalized)
-    if (a.length === b.length && timingSafeEqual(a, b)) return true
+  try {
+    for (let i = -window; i <= window; i++) {
+      const candidate = hotp(secret, counter + i)
+      const a = Buffer.from(candidate)
+      const b = Buffer.from(normalized)
+      if (a.length === b.length && timingSafeEqual(a, b)) return counter + i
+    }
+  } catch {
+    return null
   }
-  return false
+  return null
+}
+
+// Wariant logiczny (true/false) — wygodny w testach i prostych wywołaniach.
+export function verifyTOTP(secret: string, token: string, nowMs: number, window = 1): boolean {
+  return verifyTOTPStep(secret, token, nowMs, window) !== null
 }
 
 // otpauth:// URI do wygenerowania kodu QR w aplikacji uwierzytelniającej.

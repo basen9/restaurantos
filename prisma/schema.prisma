@@ -178,6 +178,9 @@ model User {
   twoFactorSecret        String?
   twoFactorPendingSecret String?
   twoFactorRecoveryCodes String[] @default([])
+  // Ostatni zaakceptowany krok czasowy TOTP — blokuje powtórne użycie tego samego
+  // kodu w jego oknie ważności (ochrona przed replay; RFC 6238 §5.2).
+  twoFactorLastStep      BigInt   @default(0)
 
   locationId String?
   location   Location? @relation(fields: [locationId], references: [id])

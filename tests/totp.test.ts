@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  base32Encode, base32Decode, generateSecret, generateTOTP, verifyTOTP,
+  base32Encode, base32Decode, generateSecret, generateTOTP, verifyTOTP, verifyTOTPStep,
   otpauthURL, generateRecoveryCodes,
 } from '@/lib/totp'
 
@@ -11,6 +11,24 @@ describe('base32', () => {
   })
   it('matches RFC 4648 vector for "foobar"', () => {
     expect(base32Encode(Buffer.from('foobar'))).toBe('MZXW6YTBOI')
+  })
+  it('rejects invalid base32 characters (no silent skip)', () => {
+    expect(() => base32Decode('MZXW6YTB01')).toThrow() // 0 i 1 spoza alfabetu
+  })
+})
+
+describe('verifyTOTPStep (replay protection)', () => {
+  const secret = base32Encode(Buffer.from('12345678901234567890'))
+  it('returns the matched counter, monotonic with time', () => {
+    const now = 1_700_000_000_000
+    const s1 = verifyTOTPStep(secret, generateTOTP(secret, now), now)
+    const s2 = verifyTOTPStep(secret, generateTOTP(secret, now + 30_000), now + 30_000)
+    expect(s1).not.toBeNull()
+    expect(s2).not.toBeNull()
+    expect(s2!).toBe(s1! + 1)
+  })
+  it('returns null for an invalid code', () => {
+    expect(verifyTOTPStep(secret, '000000', 1_700_000_000_000)).toBeNull()
   })
 })
 
