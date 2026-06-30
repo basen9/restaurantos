@@ -366,6 +366,10 @@ export const guestSchema = z.object({
   phone: z.string().max(40).optional(),
   email: z.string().email().max(160).optional().or(z.literal('')),
   notes: z.string().max(1000).optional(),
+  preferences: z.string().max(1000).optional(),
+  allergens: z.array(z.string().max(60)).max(40).optional(),
+  tags: z.array(z.string().max(40)).max(40).optional(),
+  birthday: z.coerce.date().optional().or(z.literal('')),
 })
 export const guestUpdateSchema = guestSchema.partial()
 export const assignGuestSchema = z.object({ guestId: z.string().min(1).nullable() })
