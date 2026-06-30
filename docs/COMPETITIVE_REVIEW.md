@@ -18,7 +18,7 @@ zwiększają wartość dla właścicieli i pracowników. Wdrażane kolejno jako 
 | B | **KDS — ekran kuchni** | Standard Toast/Square; kuchnia widzi kolejkę i „bumpuje" pozycje zamiast kartek | ✅ wdrożone |
 | C | **Operacje na rachunku: rabat, napiwek, metoda płatności, podział** | Rdzeń rozliczenia; zasila marżę (rabat), koszt pracy (napiwek), raporty (metoda) | ✅ wdrożone |
 | D | **Raporty komercyjne: bestsellery, sprzedaż wg godzin/dnia, rotacja stolików** | Właściciel podejmuje decyzje (menu engineering, obsada) | ✅ wdrożone |
-| E | QR-menu / zamawianie bezkontaktowe gościa | Nowoczesny kanał, mniej pracy kelnera | roadmapa |
+| E | **Publiczne menu QR (skan przy stoliku, bez logowania)** | Nowoczesny, bezkontaktowy kanał; goście widzą aktualną kartę | ✅ wdrożone (odczyt; samodzielne zamawianie gościa = kolejna transza) |
 | F | Rezerwacje / lista oczekujących | Zarządzanie ruchem | roadmapa |
 | G | CRM gości + lojalność (punkty, historia) | Powracalność, marketing | roadmapa |
 | H | Realne płatności (terminal/online) | Wymaga integracji zewnętrznej (Stripe/Adyen) | zewnętrzne |
