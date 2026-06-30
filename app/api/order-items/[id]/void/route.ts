@@ -11,7 +11,8 @@ export const POST = handle(async (req, { params }: { params: { id: string } }) =
   const user = await requireAuth()
   const { reason } = parseBody(voidItemSchema, await req.json())
   const settings = await loadSettings(user.organizationId)
-  if (settings.voidRequiresManager && !hasPermission(user, PERMISSIONS.MANAGE_ORDERS)) {
+  // Pełne storno/comp — tylko manager/właściciel (gdy włączone w ustawieniach).
+  if (settings.voidRequiresManager && !hasPermission(user, PERMISSIONS.MANAGE_DISCOUNTS)) {
     throw new ApiError(403, 'Storno wymaga uprawnienia managera')
   }
   const item = await voidItem(user, params.id, reason)

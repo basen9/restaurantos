@@ -731,6 +731,8 @@ model Sale {
   subtotal   Float      @default(0) // wartość pozycji przed rabatem (brutto)
   discount   Float      @default(0) // udzielony rabat
   vat        Float      @default(0) // kwota VAT zawarta w total
+  serviceCharge    Float @default(0) // opłata serwisowa (osobny przychód)
+  serviceChargeVat Float @default(0) // VAT opłaty serwisowej
   tip        Float      @default(0) // napiwek (poza przychodem ze sprzedaży)
   paymentMethod String? // CASH | CARD | BLIK | ONLINE | OTHER
   splitCount Int        @default(1) // na ile osób podzielono rachunek

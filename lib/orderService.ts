@@ -5,7 +5,9 @@ import { orderTotal } from './floor'
 import { round2 } from './finance'
 import { totalVatGross } from './tax'
 import { earnPoints, computeRedemption } from './loyalty'
+import { vatFromGross } from './tax'
 import { loadSettings } from './settingsService'
+import { hasPermission, PERMISSIONS } from './permissions'
 import { audit } from './audit'
 import { ApiError, orgScope, type AuthUser } from './api'
 
@@ -139,8 +141,9 @@ export interface CloseOpts { discount?: number; tip?: number; paymentMethod?: st
 
 // Zamknięcie rachunku → utworzenie sprzedaży (przychód) + oznaczenie CLOSED. Idempotentne.
 // Przychód (Sale.total) = NETTO po rabacie, BEZ napiwku — żeby analityka/food cost były poprawne.
-export async function closeOrder(user: U & { locationId?: string | null }, orderId: string, opts: CloseOpts = {}) {
+export async function closeOrder(user: AuthUser, orderId: string, opts: CloseOpts = {}) {
   const settings = await loadSettings(user.organizationId)
+  const canDiscountFreely = hasPermission(user, PERMISSIONS.MANAGE_DISCOUNTS)
   // Wszystkie odczyty i obliczenia WEWNĄTRZ transakcji (Serializable) — koniec wyścigu
   // storno↔zamknięcie: rachunek nie zafakturuje pozycji wystornowanej współbieżnie.
   const result = await serializable(async (tx) => {
@@ -156,7 +159,12 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
     if (liveItems.length === 0) throw new ApiError(400, 'Pusty rachunek — dodaj pozycje przed zamknięciem')
 
     const subtotal = orderTotal(liveItems)
-    const manualDiscount = Math.min(round2(opts.discount || 0), subtotal) // rabat ręczny
+    let manualDiscount = Math.min(round2(opts.discount || 0), subtotal) // rabat ręczny
+    // Limit rabatu kelnera (bez uprawnienia managera). Pełny comp wymaga MANAGE_DISCOUNTS.
+    if (!canDiscountFreely) {
+      const cap = round2(subtotal * (settings.waiterDiscountLimitPct || 0) / 100)
+      if (manualDiscount > cap) throw new ApiError(403, `Rabat przekracza limit kelnera (${settings.waiterDiscountLimitPct || 0}%). Wymaga managera.`)
+    }
 
     // Lojalność: opcjonalna wymiana punktów gościa na rabat (w obrębie transakcji).
     let guest: any = null
@@ -174,6 +182,14 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
     const discount = Math.min(round2(manualDiscount + pointDiscount), subtotal)
     const tip = round2(opts.tip || 0)
     const netTotal = round2(subtotal - discount) // przychód brutto do analityki (bez napiwku)
+    // Opłata serwisowa (osobny przychód) — naliczana od kwoty po rabacie, konfigurowalna.
+    let serviceCharge = 0
+    if (settings.serviceChargeEnabled && settings.serviceChargeValue > 0) {
+      serviceCharge = settings.serviceChargeType === 'AMOUNT'
+        ? round2(settings.serviceChargeValue)
+        : round2(netTotal * settings.serviceChargeValue / 100)
+    }
+    const serviceChargeVat = serviceCharge > 0 ? vatFromGross(serviceCharge, settings.serviceChargeVatRate) : 0
     // Rabat rozkładamy proporcjonalnie na pozycje; brutto po rabacie na SaleItem → VAT i raport z tych samych kwot.
     const discountFactor = subtotal > 0 ? netTotal / subtotal : 1
     const adjusted = liveItems.map((i: any) => ({ ...i, adjGross: round2(i.quantity * i.unitPrice * discountFactor) }))
@@ -187,6 +203,7 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
     const sale = await tx.sale.create({
       data: {
         organizationId: user.organizationId, locationId, total: netTotal, subtotal, discount, vat, tip,
+        serviceCharge, serviceChargeVat,
         serverId: order.openedById ?? user.id,
         guestId: order.guestId ?? null,
         paymentMethod: opts.paymentMethod || null, splitCount, source: 'POS',

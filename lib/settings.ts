@@ -4,7 +4,13 @@
 export interface OrgSettings {
   currency: string // waluta (wyświetlanie)
   defaultVatRate: number // domyślna stawka VAT nowych pozycji menu
-  serviceChargePct: number // automatyczna opłata serwisowa (% — 0 = wyłączona)
+  serviceChargePct: number // (legacy) automatyczna opłata serwisowa (% — 0 = wyłączona)
+  serviceChargeEnabled: boolean // opłata serwisowa włączona
+  serviceChargeType: 'PERCENT' | 'AMOUNT' // typ opłaty
+  serviceChargeValue: number // wartość (procent lub kwota)
+  serviceChargeVatRate: number // stawka VAT opłaty serwisowej
+  waiterDiscountLimitPct: number // maks. % rabatu dla kelnera (bez uprawnienia managera)
+  twoFactorRequiredRoles: string[] // role z wymuszonym 2FA (np. ['OWNER'])
   tipModel: 'individual' | 'pooled' // model napiwków: indywidualny / wspólna pula
   voidRequiresManager: boolean // czy storno wymaga uprawnienia managera
   cashTipsInDrawer: boolean // czy napiwki gotówkowe wliczać do oczekiwanej gotówki
@@ -19,6 +25,12 @@ export const DEFAULT_SETTINGS: OrgSettings = {
   currency: 'PLN',
   defaultVatRate: 8,
   serviceChargePct: 0,
+  serviceChargeEnabled: false,
+  serviceChargeType: 'PERCENT',
+  serviceChargeValue: 0,
+  serviceChargeVatRate: 8,
+  waiterDiscountLimitPct: 0,
+  twoFactorRequiredRoles: [],
   tipModel: 'individual',
   voidRequiresManager: true,
   cashTipsInDrawer: true,

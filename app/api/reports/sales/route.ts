@@ -12,7 +12,7 @@ export const GET = handle(async (req) => {
   const from = new Date(); from.setDate(from.getDate() - days); from.setHours(0, 0, 0, 0)
   const sales = await prisma.sale.findMany({
     where: { ...orgScope(user), soldAt: { gte: from } },
-    select: { total: true, tip: true, discount: true, vat: true, paymentMethod: true, soldAt: true, items: { select: { name: true, quantity: true, total: true, vatRate: true } } },
+    select: { total: true, tip: true, discount: true, vat: true, serviceCharge: true, paymentMethod: true, soldAt: true, items: { select: { name: true, quantity: true, total: true, vatRate: true } } },
     take: 20000,
   })
   return NextResponse.json(buildSalesReport(sales, days))
