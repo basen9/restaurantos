@@ -351,7 +351,18 @@ export const closeOrderSchema = z.object({
   tip: z.number().nonnegative().default(0),
   paymentMethod: z.enum(['CASH', 'CARD', 'BLIK', 'ONLINE', 'OTHER']).optional(),
   splitCount: z.number().int().min(1).max(100).default(1),
+  redeemPoints: z.number().int().min(0).max(1000000).default(0),
 })
+
+// ===== CRM gości / lojalność =====
+export const guestSchema = z.object({
+  name: z.string().min(1).max(160),
+  phone: z.string().max(40).optional(),
+  email: z.string().email().max(160).optional().or(z.literal('')),
+  notes: z.string().max(1000).optional(),
+})
+export const guestUpdateSchema = guestSchema.partial()
+export const assignGuestSchema = z.object({ guestId: z.string().min(1).nullable() })
 
 export const recipeGuideSchema = z.object({
   instructions: z.string().max(8000).optional(),

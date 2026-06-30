@@ -4,10 +4,23 @@ import { prisma } from './prisma'
 import { orderTotal } from './floor'
 import { round2 } from './finance'
 import { totalVatGross } from './tax'
+import { earnPoints, computeRedemption } from './loyalty'
+import { loadSettings } from './settingsService'
 import { audit } from './audit'
 import { ApiError, orgScope, type AuthUser } from './api'
 
 type U = Pick<AuthUser, 'id' | 'organizationId'>
+
+// Przypisanie/odpięcie gościa do otwartego rachunku.
+export async function assignGuest(user: U, orderId: string, guestId: string | null) {
+  const order = await prisma.tableOrder.findFirst({ where: { id: orderId, ...orgScope(user), status: 'OPEN' }, select: { id: true } })
+  if (!order) throw new ApiError(404, 'Otwarty rachunek nie istnieje')
+  if (guestId) {
+    const g = await prisma.guest.findFirst({ where: { id: guestId, ...orgScope(user) }, select: { id: true } })
+    if (!g) throw new ApiError(400, 'Nieprawidłowy gość')
+  }
+  return prisma.tableOrder.update({ where: { id: orderId }, data: { guestId } })
+}
 
 async function assertTable(user: U, tableId: string) {
   const table = await prisma.restaurantTable.findFirst({ where: { id: tableId, ...orgScope(user) }, select: { id: true } })
@@ -20,7 +33,7 @@ export async function getOpenOrder(user: U, tableId: string) {
   await assertTable(user, tableId)
   return prisma.tableOrder.findFirst({
     where: { tableId, ...orgScope(user), status: 'OPEN' },
-    include: { items: { orderBy: { createdAt: 'asc' } } },
+    include: { items: { orderBy: { createdAt: 'asc' } }, guest: { select: { id: true, name: true, points: true } } },
     orderBy: { openedAt: 'desc' },
   })
 }
@@ -121,11 +134,12 @@ export async function moveOrder(user: U, orderId: string, targetTableId: string)
   return out
 }
 
-export interface CloseOpts { discount?: number; tip?: number; paymentMethod?: string; splitCount?: number }
+export interface CloseOpts { discount?: number; tip?: number; paymentMethod?: string; splitCount?: number; redeemPoints?: number }
 
 // Zamknięcie rachunku → utworzenie sprzedaży (przychód) + oznaczenie CLOSED. Idempotentne.
 // Przychód (Sale.total) = NETTO po rabacie, BEZ napiwku — żeby analityka/food cost były poprawne.
 export async function closeOrder(user: U & { locationId?: string | null }, orderId: string, opts: CloseOpts = {}) {
+  const settings = await loadSettings(user.organizationId)
   // Wszystkie odczyty i obliczenia WEWNĄTRZ transakcji (Serializable) — koniec wyścigu
   // storno↔zamknięcie: rachunek nie zafakturuje pozycji wystornowanej współbieżnie.
   const result = await serializable(async (tx) => {
@@ -141,7 +155,22 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
     if (liveItems.length === 0) throw new ApiError(400, 'Pusty rachunek — dodaj pozycje przed zamknięciem')
 
     const subtotal = orderTotal(liveItems)
-    const discount = Math.min(round2(opts.discount || 0), subtotal) // rabat nie większy niż wartość rachunku
+    const manualDiscount = Math.min(round2(opts.discount || 0), subtotal) // rabat ręczny
+
+    // Lojalność: opcjonalna wymiana punktów gościa na rabat (w obrębie transakcji).
+    let guest: any = null
+    let pointDiscount = 0
+    let redeemedPoints = 0
+    if (order.guestId && settings.loyaltyEnabled) {
+      guest = await tx.guest.findFirst({ where: { id: order.guestId, ...orgScope(user) } })
+      if (guest && (opts.redeemPoints || 0) > 0) {
+        const red = computeRedemption(opts.redeemPoints || 0, guest.points, settings.loyaltyRedeemValue, subtotal - manualDiscount)
+        pointDiscount = red.discount
+        redeemedPoints = red.points
+      }
+    }
+
+    const discount = Math.min(round2(manualDiscount + pointDiscount), subtotal)
     const tip = round2(opts.tip || 0)
     const netTotal = round2(subtotal - discount) // przychód brutto do analityki (bez napiwku)
     // Rabat rozkładamy proporcjonalnie na pozycje; brutto po rabacie na SaleItem → VAT i raport z tych samych kwot.
@@ -158,11 +187,17 @@ export async function closeOrder(user: U & { locationId?: string | null }, order
       data: {
         organizationId: user.organizationId, locationId, total: netTotal, subtotal, discount, vat, tip,
         serverId: order.openedById ?? user.id,
+        guestId: order.guestId ?? null,
         paymentMethod: opts.paymentMethod || null, splitCount, source: 'POS',
         items: { create: adjusted.map((i: any) => ({ productId: i.productId || null, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, total: i.adjGross, vatRate: i.vatRate })) },
       },
     })
     await tx.tableOrder.update({ where: { id: order.id }, data: { saleId: sale.id } })
+    // Lojalność: aktualizacja salda punktów (zużyte − naliczone), wizyt i wydatków gościa.
+    if (guest && settings.loyaltyEnabled) {
+      const earned = earnPoints(netTotal, settings.loyaltyPointsPerCurrency)
+      await tx.guest.update({ where: { id: guest.id }, data: { points: guest.points - redeemedPoints + earned, visits: { increment: 1 }, totalSpent: { increment: netTotal }, lastVisitAt: new Date() } })
+    }
     await tx.posConnection.upsert({
       where: { organizationId: user.organizationId },
       create: { organizationId: user.organizationId, provider: 'floor', connected: true, lastSyncAt: new Date() },
